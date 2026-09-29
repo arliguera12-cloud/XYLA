@@ -317,7 +317,7 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:
   <section class="screen" id="s-game" hidden>
     <div class="hud">
       <div class="lvl" id="g-lvl" hidden></div>
-      <div style="display:flex;gap:14px;align-items:center"><div class="dots" id="g-dots"></div><span class="label" id="g-gems" style="font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55)">💎 0</span></div>
+      <div style="display:flex;gap:14px;align-items:center"><div class="dots" id="g-dots"></div><span class="label" id="g-lives" style="padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55)" aria-live="polite"></span><span class="label" id="g-gems" style="font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55)">💎 0</span></div>
       <button class="btn ghost" id="g-menu">Menú</button>
     </div>
     <div class="stage" id="stage">
@@ -605,6 +605,7 @@ function ask(q) {
     const letters = ["A", "B", "C"];
     qm.innerHTML = `<div class="panel qbox"><div class="qgrid"><div style="display:flex;flex-direction:column;gap:14px">
       <div class="qhead"><div class="qbadge">?</div><div><div class="label">${q.tag || "Reto"}</div><div class="qtext">${q.text}</div></div></div>
+      ${G ? `<div class="label" id="q-lives" style="text-align:center;letter-spacing:normal"></div>` : ""}
       ${q.expr ? `<div class="qexpr">${q.expr}</div>` : ""}
       <div class="opts">${q.opts.map((o, i) => `<button class="opt ${q.cups ? "cup" : ""}" data-i="${i}"><b>${letters[i]}</b>${o}</button>`).join("")}</div>
       <div class="feedback" id="fb" aria-live="polite">${q.tip || ""}</div>
@@ -612,16 +613,28 @@ function ask(q) {
       ${q.calc ? calcHTML() : ""}</div></div>`;
     if (q.calc) { qm.querySelector(".qgrid").style.gridTemplateColumns = ""; wireCalc(qm) } else qm.querySelector(".qgrid").style.gridTemplateColumns = "1fr";
     qm.hidden = false;
-    const fb = qm.querySelector("#fb");
+    const fb = qm.querySelector("#fb"), qLives = qm.querySelector("#q-lives");
+    if (qLives) qLives.textContent = "❤️".repeat(G.lives) + "🖤".repeat(MAX_LIVES - G.lives);
     qm.querySelectorAll(".opt").forEach(b => b.onclick = () => {
       const i = +b.dataset.i;
       if (i === q.ok) {
         b.classList.add("right"); qm.querySelectorAll(".opt").forEach(x => x.disabled = true);
         fb.className = "feedback ok"; fb.textContent = q.right.join(" ");
         const go = qm.querySelector("#q-go"); go.hidden = false; go.focus();
-        go.onclick = () => { qm.hidden = true; res() };
+        go.onclick = () => { qm.hidden = true; res(true) };
       } else {
         b.classList.remove("wrong"); void b.offsetWidth; b.classList.add("wrong"); b.disabled = true;
+        if (G) {
+          const over = loseLife("¡Respuesta incorrecta!");
+          if (over) {
+            fb.className = "feedback no"; fb.textContent = "Se te acabaron las vidas. Vamos a reiniciar este nivel.";
+            qm.querySelectorAll(".opt").forEach(x => x.disabled = true);
+            const L = G.L; G.x = L.spawn; G.y = L.fly ? L.spawnY : L.plats[0][2]; G.cp = L.spawn; G.vx = 0; G.vy = 0;
+            setTimeout(() => { qm.hidden = true; res("restart") }, 1400);
+            return;
+          }
+          qLives.textContent = "❤️".repeat(G.lives) + "🖤".repeat(MAX_LIVES - G.lives);
+        }
         fb.className = "feedback no"; fb.textContent = q.wrong.join(" ");
       }
     });
@@ -724,12 +737,13 @@ function spawnPart(L, W, H) {
   return { x: rnd(0, W), y: rnd(-H * 1.5, H), vx: rnd(-10, -3), vy: rnd(-2, 2), life: rnd(2, 4), t: 0, c: Math.random() < .4 ? "200,160,255" : "150,220,255", r: rnd(.6, 1.6) };
 }
 
+const MAX_LIVES = 5;
 function startLevel(area, idx) {
   const L = LEVELS[area][idx]; const im = img(L.img);
   G = { area, idx, L, im, x: L.spawn, y: L.fly ? L.spawnY : L.plats[0][2], vx: 0, vy: 0, ground: !L.fly, face: 1, fly: !!L.fly,
         t: 0, answered: false, busy: true, exitOn: false, star: false, cp: L.spawn, trail: [], done: null, inv: 0, on: null,
         portalOpen: L.portal && L.portal.open ? 1 : 0, absorb: 0, boxGone: 0, burst: [], gems: (L.gems || []).map(g => ({ x: g[0], y: g[1], got: 0 })),
-        cups: null, cupPick: false, fx: null, parts: [] };
+        cups: null, cupPick: false, fx: null, parts: [], lives: MAX_LIVES };
   const p0 = platAt(G.x); if (!L.fly && p0) G.y = p0[2];
   const dots = $("#g-dots"); dots.innerHTML = [0, 1, 2].map(i => `<i class="${i < idx || idx === 4 ? "on" : ""}"></i>`).join("");
   $("#g-lvl").textContent = AREA[area].name + (idx === 0 ? " · Bienvenida" : idx === 4 ? " · Meta" : ` · Nivel ${idx}`);
@@ -738,8 +752,16 @@ function startLevel(area, idx) {
   $("#g-hint").textContent = G.fly ? "← → avanzar · ↑ ↓ volar · esquiva los asteroides" : "← → caminar · ↑ o Espacio saltar · ↓ agacharse";
   $("#fxov").dataset.fx = L.fx || ""; G.rowC = null;
   if (L.cups) G.cups = L.cups.slots.map((x, i) => ({ x, y: L.cups.y, lift: 0, i }));
-  updGems();
+  updGems(); updLives();
   return new Promise(res => { G.done = res });
+}
+function updLives() { if (!G) return; $("#g-lives").textContent = "❤️".repeat(Math.max(0, G.lives)) + "🖤".repeat(Math.max(0, MAX_LIVES - G.lives)); }
+// Resta una vida; si llega a 0 las recarga y avisa que hay que reiniciar el nivel actual.
+function loseLife(msg) {
+  if (!G || G.absorb) return false;
+  G.lives--; updLives(); toast(msg); G.shake = Math.max(G.shake || 0, .3); G.flash = Math.max(G.flash || 0, .55);
+  if (G.lives <= 0) { G.lives = MAX_LIVES; updLives(); return true }
+  return false;
 }
 function updGems() { $("#g-gems").textContent = "💎 " + gemsTotal }
 
@@ -760,7 +782,7 @@ function step(dt) {
   if (!G.fx) G.fx = makeFx(L, rowW, rowH);
   if (G.parts.filter(p => !p.trail).length < 140 && Math.random() < dt * 60) G.parts.push(spawnPart(L, rowW, rowH));
   for (const p of G.parts) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt }
-  if (G.shake > 0) G.shake -= dt; if (G.flash > 0) G.flash -= dt * 2.5; if (G.squash > 0) G.squash -= dt * 5;
+  if (G.shake > 0) G.shake -= dt; if (G.flash > 0) G.flash -= dt * 2.5; if (G.squash) G.squash *= Math.pow(.0006, dt);
   G.parts = G.parts.filter(p => p.t < p.life);
   for (const b of G.burst) { b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 60 * dt }
   G.burst = G.burst.filter(b => b.t < b.life);
@@ -779,7 +801,9 @@ function step(dt) {
       const pts = [.18, .5, .82].map(u => [G.x + G.face * Math.sin(lean) * u * Hb, G.y - Math.cos(lean) * u * Hb]);
       const rb = Hb * .14;
       hit: for (const o of L.obst) { const [ox, oy] = obstPos(o, G.t); for (const [px, py] of pts) if (Math.hypot(px - ox, py - oy) < o.c[2] * .82 + rb) {
-        G.inv = 1.2; G.kb = -330 * G.face; G.shake = .25; G.flash = .8; toast("¡Esquiva los asteroides!");
+        const over = loseLife("¡Esquiva los asteroides!");
+        G.inv = over ? 2 : 1.2; G.kb = -330 * G.face;
+        if (over) { G.x = L.spawn; G.y = L.spawnY; G.kb = 0; G.trail = [] }
         for (let i = 0; i < 16; i++) G.burst.push({ x: px, y: py, vx: rnd(-110, 110), vy: rnd(-110, 50), t: 0, life: .6, c: "255,120,140" });
         break hit } }
     }
@@ -788,18 +812,22 @@ function step(dt) {
     // arrastre de plataforma móvil
     if (G.on && G.ground) { const [ax, ay] = moverOff(G.on, prevT), [bx, by] = moverOff(G.on, G.t); G.x += bx - ax; G.y += by - ay }
     G.vx = dir * 300 * (keys.down && G.ground ? 0.35 : 1);
-    if (!busy && keys.up && (G.ground || G.coyote > 0)) { G.vy = -610; G.ground = false; G.coyote = 0; G.jt = 0; G.on = null }
+    if (!busy && keys.up && (G.ground || G.coyote > 0)) { G.vy = -610; G.ground = false; G.coyote = 0; G.jt = 0; G.on = null; G.squash = -.8 }
     if (!keys.up && G.vy < -250) G.vy = -250;
-    const prevY = G.y; G.vy += 1500 * dt; G.x += G.vx * dt; G.y += G.vy * dt; G.jt = (G.jt || 0) + dt;
+    const prevY = G.y, fallV = G.vy; G.vy += 1500 * dt; G.x += G.vx * dt; G.y += G.vy * dt; G.jt = (G.jt || 0) + dt;
     G.coyote = Math.max(0, (G.coyote || 0) - dt);
     let landed = null;
     if (G.vy >= 0) for (const p of plats()) { if (G.x >= p[0] - 8 && G.x <= p[1] + 8 && prevY <= p[2] + 3 && G.y >= p[2]) { G.y = p[2]; G.vy = 0; landed = p; break } }
     if (G.ground && !landed) G.coyote = 0.1;
-    if (landed && !G.ground && G.jt > .15) { dust(G.x, G.y, 10); G.squash = 1 }
+    if (landed && !G.ground && G.jt > .15) { dust(G.x, G.y, Math.min(22, 6 + fallV / 60)); G.squash = Math.min(1.6, .5 + fallV / 500) }
     if (landed && Math.abs(G.vx) > 50 && Math.random() < dt * 9) dust(G.x - 10 * G.face, G.y, 1);
     G.ground = !!landed; G.on = landed && landed[3] ? landed[3] : null;
     if (landed && !landed[3] && landed !== L.exit) G.cp = Math.min(Math.max(G.x, landed[0] + 20), landed[1] - 20);
-    if (G.y > rowH + 60) { G.x = G.cp; const p = platAt(G.cp); G.y = p ? p[2] : L.plats[0][2]; G.vy = 0; G.on = null; toast("¡Cuidado! Evita caer.") }
+    if (G.y > rowH + 60) {
+      const over = loseLife("¡Cuidado! Evita caer.");
+      if (over) G.cp = L.spawn;
+      G.x = G.cp; const p = platAt(G.cp); G.y = p ? p[2] : L.plats[0][2]; G.vy = 0; G.on = null;
+    }
   }
   G.x = Math.max(14, Math.min(rowW - 14, G.x));
   // gemas
@@ -928,11 +956,12 @@ function draw() {
   if (L.portal) drawPortal(ctx, L.portal.x, L.portal.y, L.portal.s || 1, t, G.portalOpen);
   if (G.fly) for (const tr of G.trail) { tr.a *= 0.9; ctx.fillStyle = `rgba(63,214,255,${tr.a * 0.5})`; ctx.fillRect(tr.x - 10, tr.y, 20, 3) }
   // personaje
-  let f = 8;
+  let f = 8, idleBob = 0, lean = 0;
   if (G.fly) f = 5;
   else if (!G.ground) f = G.jt < 0.08 ? 3 : G.vy < -150 ? 4 : G.vy < 150 ? 5 : 6;
   else if (keys.down && !G.busy) f = 7;
-  else if (Math.abs(G.vx) > 1) f = Math.floor(t * 10) % 3;
+  else if (Math.abs(G.vx) > 1) { f = Math.floor(t * 11) % 3; lean = .06 * G.face; }
+  else idleBob = Math.sin(t * 1.7) * 2.4; // respiración cuando está de pie quieto
   if (G.absorb) f = 5;
   if (!G.absorb) { // sombra bajo los pies
     let gy = null; if (!G.fly) { for (const p of plats()) if (G.x >= p[0] - 6 && G.x <= p[1] + 6 && p[2] >= G.y - 1 && (gy === null || p[2] < gy)) gy = p[2] }
@@ -940,12 +969,12 @@ function draw() {
   }
   if (G.inv > 0 && Math.floor(t * 16) % 2) ctx.globalAlpha = 0.35;
   ctx.save();
-  let px = G.x, py = G.y, sc = K;
+  let px = G.x, py = G.y + idleBob, sc = K;
   if (G.absorb) { const a = G.absorb, P = L.portal; px += (P.x - px) * a; py += (P.y - 30 * (P.s || 1) - py) * a; sc = K * (1 - a * .95) }
   ctx.translate(px, py); if (G.absorb) ctx.rotate(G.absorb * 7);
-  const sq = G.squash > 0 ? G.squash * .12 : 0;
+  const sq = (G.squash || 0) * .12; // positivo = aplasta al aterrizar, negativo = estira al despegar
   if (G.fly) sc *= FLY_K;
-  ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(0.35);
+  ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(0.35); else if (lean) ctx.rotate(lean);
   ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH); ctx.restore(); ctx.globalAlpha = 1;
   // chispas
   ctx.globalCompositeOperation = "lighter";
@@ -1003,9 +1032,14 @@ async function playArea(area) {
     const lv = A.levels[i];
     await transition(() => { fin = startLevel(area, i + 1) });
     await say(lv.say); G.busy = false;
-    await new Promise(r => G.onBox = r);
-    if (G.L.cups) await cupGame();
-    await ask(lv.q); G.answered = true; G.exitOn = true;
+    let outcome;
+    do {
+      await new Promise(r => G.onBox = r);
+      if (G.L.cups) await cupGame();
+      outcome = await ask(lv.q);
+      if (outcome === "restart") { G.busy = false; await say(["Vuelve a la caja ? para intentarlo de nuevo."]) }
+    } while (outcome === "restart");
+    G.answered = true; G.exitOn = true;
     if (G.L.box && G.L.box.spr) { const L = G.L; boom(L.box.x, 40, "255,230,120"); tween(500, p => G.boxGone = p) }
     if (G.cups) { const cs = G.cups; tween(600, p => cs.forEach(c => c.lift = 46 + p * 120)).then(() => { if (G && G.cups === cs) G.cups = null }) }
     openPortal();
