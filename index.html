@@ -648,13 +648,31 @@ const AREA = {
     intro: ["¡Bienvenida a Operaciones Aritméticas!", "Camina hasta el portal para entrar al nivel 1. Evita caer."],
     levels: [
       { say: ["Este es el nivel 1.", "Vamos a comenzar con operaciones aritméticas básicas.", "Primero veremos un ejemplo.", "Si tenemos 7 + 3, el resultado es 10.", "Ahora es tu turno. Salta por las plataformas hasta la caja ?"],
-        q: { tag: "Nivel 1 · Operaciones básicas", text: "¿Cuánto es 24 + 18?", opts: ["40", "42", "44"], ok: 1, right: ["¡Correcto! Puedes continuar."], wrong: ["No es esa respuesta. Inténtalo otra vez.", "Recuerda sumar 24 y 18."] },
+        q: { tag: "Nivel 1 · Operaciones básicas", right: ["¡Correcto! Puedes continuar."], wrong: ["No es esa respuesta. Inténtalo otra vez.", "Vuelve a sumar con cuidado."],
+          variants: [
+            { text: "¿Cuánto es 24 + 18?", opts: ["40", "42", "44"], ok: 1 },
+            { text: "¿Cuánto es 35 + 27?", opts: ["60", "62", "64"], ok: 1 },
+            { text: "¿Cuánto es 46 + 19?", opts: ["63", "65", "67"], ok: 1 },
+            { text: "¿Cuánto es 58 + 16?", opts: ["72", "74", "76"], ok: 1 }
+          ] },
         end: ["¡Nivel 1 completado!", "Ahora vamos con el siguiente nivel."] },
       { say: ["Llegaste al nivel 2.", "Ahora las operaciones son un poco más complicadas.", "Cuando tenemos varias operaciones juntas, debemos seguir un orden.", "Primero resolvemos las multiplicaciones y divisiones, y después las sumas y restas.", "Por ejemplo: 5 + 2 × 3.", "Primero hacemos 2 × 3, que es 6.", "Después sumamos 5 y obtenemos 11.", "Ahora prueba tú."],
-        q: { tag: "Nivel 2 · Jerarquía de operaciones", text: "Resuelve:", expr: "10 + 6 ÷ 2", opts: ["8", "13", "16"], ok: 1, right: ["¡Muy bien! La respuesta es 13.", "Puedes seguir."], wrong: ["No es esa.", "Recuerda que primero hacemos la división y después la suma.", "Inténtalo otra vez."] },
+        q: { tag: "Nivel 2 · Jerarquía de operaciones", text: "Resuelve:", right: ["¡Muy bien!", "Puedes seguir."], wrong: ["No es esa.", "Recuerda: primero multiplicaciones y divisiones, después sumas y restas.", "Inténtalo otra vez."],
+          variants: [
+            { expr: "10 + 6 ÷ 2", opts: ["8", "13", "16"], ok: 1 },
+            { expr: "8 + 12 ÷ 4", opts: ["9", "11", "20"], ok: 1 },
+            { expr: "20 − 4 × 3", opts: ["8", "48", "16"], ok: 0 },
+            { expr: "15 + 9 ÷ 3", opts: ["8", "18", "24"], ok: 1 }
+          ] },
         end: ["¡Nivel 2 completado!", "Solo falta un nivel para terminar Operaciones."] },
       { say: ["Este es el último nivel de Operaciones Aritméticas.", "Ahora tendrás que volar esquivando los asteroides. Usa ↑ y ↓.", "Ahora tendrás que usar lo que aprendiste en los niveles anteriores.", "Lee bien la operación antes de responder.", "Cuando hay paréntesis, primero resolvemos lo que está dentro.", "Después continuamos con las demás operaciones."],
-        q: { tag: "Nivel 3 · Reto de operaciones", text: "Resuelve:", expr: "(12 + 8) × 3 − 10", opts: ["40", "50", "60"], ok: 1, right: ["¡Correcto!", "Terminaste los tres niveles de Operaciones Aritméticas."], wrong: ["Casi.", "Recuerda resolver primero lo que está dentro del paréntesis.", "Inténtalo nuevamente."] },
+        q: { tag: "Nivel 3 · Reto de operaciones", text: "Resuelve:", right: ["¡Correcto!", "Terminaste los tres niveles de Operaciones Aritméticas."], wrong: ["Casi.", "Recuerda resolver primero lo que está dentro del paréntesis.", "Inténtalo nuevamente."],
+          variants: [
+            { expr: "(12 + 8) × 3 − 10", opts: ["40", "50", "60"], ok: 1 },
+            { expr: "(9 + 3) × 4 − 8", opts: ["32", "40", "48"], ok: 1 },
+            { expr: "(15 − 5) × 2 + 6", opts: ["16", "26", "36"], ok: 1 },
+            { expr: "(6 + 4) × 5 − 20", opts: ["20", "30", "40"], ok: 1 }
+          ] },
         end: ["¡Vamos hacia la meta!"] }
     ],
     meta: ["¡Llegamos a la meta!", "Completaste Operaciones Aritméticas.", "Ahora podemos continuar con Álgebra."],
@@ -665,19 +683,39 @@ const AREA = {
     intro: ["Ahora empezamos con Álgebra.", "Camina hasta el portal para entrar al nivel 1."],
     levels: [
       { say: ["Aquí vamos a trabajar con números y letras.", "Una letra puede representar un número que todavía no conocemos.", "Por ejemplo, si tenemos x + 5 = 10, necesitamos descubrir cuánto vale x.", "En este caso, x vale 5.", "Ahora te toca. Llega a la caja ? (y atrapa la estrella)."],
-        q: { tag: "Nivel 1 · Incógnitas", text: "Si x + 7 = 15, ¿cuánto vale x?", opts: ["6", "7", "8"], ok: 2, right: ["¡Correcto! Encontraste el valor de x.", "Puedes continuar."], wrong: ["No es esa.", "Busca el número que, sumado a 7, dé 15.", "Inténtalo nuevamente."] },
+        q: { tag: "Nivel 1 · Incógnitas", right: ["¡Correcto! Encontraste el valor de x.", "Puedes continuar."], wrong: ["No es esa.", "Busca el número que, sumado al otro, dé el resultado.", "Inténtalo nuevamente."],
+          variants: [
+            { text: "Si x + 7 = 15, ¿cuánto vale x?", opts: ["6", "7", "8"], ok: 2 },
+            { text: "Si x + 9 = 14, ¿cuánto vale x?", opts: ["4", "5", "6"], ok: 1 },
+            { text: "Si x + 12 = 20, ¿cuánto vale x?", opts: ["6", "8", "10"], ok: 1 },
+            { text: "Si x + 15 = 22, ¿cuánto vale x?", opts: ["5", "7", "9"], ok: 1 }
+          ] },
         end: ["¡Nivel 1 completado!", "Vamos por el siguiente."] },
       { say: ["Llegaste al nivel 2.", "Ahora vamos a resolver ecuaciones.", "La idea es dejar la x sola para descubrir cuánto vale.", "Si tenemos 2x = 10, dividimos entre 2.", "Entonces x = 5.", "Ahora prueba tú."],
-        q: { tag: "Nivel 2 · Ecuaciones", text: "Resuelve:", expr: "3x + 6 = 18", opts: ["x = 3", "x = 4", "x = 5"], ok: 1, right: ["¡Muy bien! x vale 4.", "Puedes continuar."], wrong: ["No es esa.", "Primero resta 6 y después divide entre 3.", "Inténtalo otra vez."] },
+        q: { tag: "Nivel 2 · Ecuaciones", text: "Resuelve:", right: ["¡Muy bien!", "Puedes continuar."], wrong: ["No es esa.", "Primero resta o suma el número suelto, y después divide.", "Inténtalo otra vez."],
+          variants: [
+            { expr: "3x + 6 = 18", opts: ["x = 3", "x = 4", "x = 5"], ok: 1 },
+            { expr: "2x + 5 = 17", opts: ["x = 5", "x = 6", "x = 7"], ok: 1 },
+            { expr: "4x − 3 = 9", opts: ["x = 2", "x = 3", "x = 4"], ok: 1 },
+            { expr: "5x + 4 = 24", opts: ["x = 3", "x = 4", "x = 6"], ok: 1 }
+          ] },
         end: ["¡Nivel 2 completado!", "Ya casi terminamos Álgebra."] },
       { say: ["Llegaste al último nivel de Álgebra.", "Este es un poco más difícil, así que piensa bien antes de responder.", "La respuesta está escondida bajo uno de los vasos."],
-        q: { tag: "Nivel 3 · Vasos y adivinanza", text: "Elige el vaso correcto:", expr: "2(x + 3) = 14", cups: true, opts: ["x = 4", "x = 5", "x = 6"], ok: 0, right: ["¡Correcto!", "Terminaste todos los niveles de Álgebra.", "Ya solo falta una última prueba."], wrong: ["Revisa primero lo que está dentro del paréntesis.", "Después busca el valor de x.", "Inténtalo nuevamente."] },
+        q: { tag: "Nivel 3 · Vasos y adivinanza", text: "Elige el vaso correcto:", cups: true, right: ["¡Correcto!", "Terminaste todos los niveles de Álgebra.", "Ya solo falta una última prueba."], wrong: ["Revisa primero lo que está dentro del paréntesis.", "Después busca el valor de x.", "Inténtalo nuevamente."],
+          variants: [
+            { expr: "2(x + 3) = 14", opts: ["x = 4", "x = 5", "x = 6"], ok: 0 },
+            { expr: "3(x + 2) = 21", opts: ["x = 4", "x = 5", "x = 6"], ok: 1 },
+            { expr: "2(x − 1) = 10", opts: ["x = 5", "x = 6", "x = 7"], ok: 1 },
+            { expr: "4(x + 1) = 20", opts: ["x = 3", "x = 4", "x = 5"], ok: 1 }
+          ] },
         end: ["¡Vamos hacia la meta!"] }
     ],
     meta: ["¡Llegamos a la meta!", "Ya completaste Operaciones Aritméticas y Álgebra.", "Ahora solo falta la última parte.", "El reto de Geometría."],
     next: "geo", nextLabel: "Ir a Geometría"
   }
 };
+// Elige al azar una de las variantes de un reto para que no siempre sea el mismo ejercicio.
+function pickQ(q) { return Object.assign({}, q, q.variants[Math.floor(Math.random() * q.variants.length)]) }
 
 /* ---------- Motor de plataformas ---------- */
 const cv = $("#cv"), ctx = cv.getContext("2d");
@@ -1036,7 +1074,7 @@ async function playArea(area) {
     do {
       await new Promise(r => G.onBox = r);
       if (G.L.cups) await cupGame();
-      outcome = await ask(lv.q);
+      outcome = await ask(pickQ(lv.q));
       if (outcome === "restart") { G.busy = false; await say(["Vuelve a la caja ? para intentarlo de nuevo."]) }
     } while (outcome === "restart");
     G.answered = true; G.exitOn = true;
