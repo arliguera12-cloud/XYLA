@@ -26,18 +26,27 @@ button{cursor:pointer}
 .screen[hidden]{display:none!important}
 .pad{padding-inline:16px;padding-block:16px}
 h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:.04em}
-.btn{font-family:var(--f-display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;border:2px solid var(--line);background:linear-gradient(180deg,rgba(63,214,255,.25),rgba(63,214,255,.06));padding:12px 22px;border-radius:10px;box-shadow:0 0 18px rgba(63,214,255,.35),inset 0 0 12px rgba(63,214,255,.25);transition:transform .12s,box-shadow .12s}
+.btn{position:relative;overflow:hidden;font-family:var(--f-display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;border:2px solid var(--line);background:linear-gradient(180deg,rgba(63,214,255,.25),rgba(63,214,255,.06));padding:12px 22px;border-radius:10px;box-shadow:0 0 18px rgba(63,214,255,.35),inset 0 0 12px rgba(63,214,255,.25);transition:transform .12s,box-shadow .12s}
+.btn::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(115deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-18deg);transition:left .55s ease}
+.btn:hover::after{left:130%}
 .btn:hover{transform:translateY(-2px);box-shadow:0 0 28px rgba(63,214,255,.6),inset 0 0 14px rgba(63,214,255,.3)}
 .btn:active{transform:translateY(1px)}
 .btn.gold{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,207,74,.28),rgba(255,207,74,.06));box-shadow:0 0 18px rgba(255,207,74,.4)}
 .btn.ghost{border-color:rgba(147,172,217,.5);box-shadow:none;background:transparent;color:var(--muted);font-size:.8rem;padding:8px 14px}
 .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn:disabled::after{display:none}
+@media (prefers-reduced-motion:reduce){.btn::after{display:none}}
 .panel{background:var(--glass);border:2px solid var(--line);border-radius:var(--r);box-shadow:0 0 22px rgba(63,214,255,.3),inset 0 0 22px rgba(63,214,255,.12);backdrop-filter:blur(6px)}
 .label{font-family:var(--f-display);font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--glow)}
 .nina{aspect-ratio:260/420;background:var(--avatar,url(assets/nina.png)) 100% 0/900% 100% no-repeat;filter:drop-shadow(0 0 12px rgba(63,214,255,.45))}
 
 /* Fondo de estrellas para pantallas de menú */
 .menu-bg{background:linear-gradient(180deg,rgba(6,10,34,.55),rgba(6,10,34,.92)),url(assets/alg1.jpg) center/cover}
+/* Símbolos matemáticos flotando de fondo, con un leve paralaje al mover el mouse */
+.mathfx{position:absolute;inset:-4%;overflow:hidden;pointer-events:none;z-index:0;transition:transform .3s ease-out}
+.mathfx span{position:absolute;bottom:-14%;font-family:var(--f-display);font-weight:700;color:rgba(158,242,255,.16);text-shadow:0 0 16px rgba(63,214,255,.35);animation:mfxUp linear infinite}
+@keyframes mfxUp{to{bottom:114%}}
+@media (prefers-reduced-motion:reduce){.mathfx span{animation:none;display:none}}
 /* Título */
 #s-title{align-items:center;justify-content:center;gap:24px;text-align:center}
 .logo{font-family:var(--f-display);font-weight:700;font-size:clamp(4rem,16vw,9rem);letter-spacing:.22em;line-height:1;margin-right:-.22em;color:var(--ink);text-shadow:0 0 12px var(--line),0 0 42px var(--line),0 0 90px var(--violet)}
@@ -63,8 +72,12 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .who{display:flex;align-items:center;gap:10px;font-weight:800}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
-.tile{position:relative;text-align:left;padding:0;overflow:hidden;border-radius:var(--r);border:2px solid var(--line);background:var(--deep);box-shadow:0 0 20px rgba(63,214,255,.25);display:flex;flex-direction:column;transition:transform .15s}
-.tile:not(:disabled):hover{transform:translateY(-4px)}
+.tile{position:relative;text-align:left;padding:0;overflow:hidden;border-radius:var(--r);border:2px solid var(--line);background:var(--deep);box-shadow:0 0 20px rgba(63,214,255,.25);display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s,border-color .15s}
+.tile::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.16) 50%,transparent 60%);background-size:220% 220%;background-position:120% 0;opacity:0;transition:opacity .2s;pointer-events:none}
+.tile:not(:disabled):hover{transform:translateY(-5px) scale(1.015);box-shadow:0 8px 30px rgba(63,214,255,.4);border-color:var(--glow)}
+.tile:not(:disabled):hover::after{opacity:1;animation:tileShine 1.1s ease forwards}
+@keyframes tileShine{from{background-position:120% 0}to{background-position:-20% 0}}
+@media (prefers-reduced-motion:reduce){.tile::after{display:none}}
 .tile .pic{height:112px;background-size:cover;background-position:center}
 .tile .body{padding:12px 14px 16px;display:flex;flex-direction:column;gap:4px}
 .tile h3{font-size:1.1rem}
@@ -317,7 +330,7 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:
   <section class="screen" id="s-game" hidden>
     <div class="hud">
       <div class="lvl" id="g-lvl" hidden></div>
-      <div style="display:flex;gap:14px;align-items:center"><div class="dots" id="g-dots"></div><span class="label" id="g-lives" style="padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55)" aria-live="polite"></span><span class="label" id="g-gems" style="font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55)">💎 0</span></div>
+      <div style="display:flex;gap:14px;align-items:center"><div class="dots" id="g-dots"></div><span class="label" id="g-lives" style="padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55)" aria-live="polite"></span><span class="label" id="g-gems" style="font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55);display:inline-flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><polygon points="8,1 14,8 8,8" fill="#c4fff2"/><polygon points="8,15 14,8 8,8" fill="#3ccdaf"/><polygon points="8,1 2,8 8,8" fill="#c4fff2"/><polygon points="8,15 2,8 8,8" fill="#3ccdaf"/></svg><span id="g-gems-n">0</span></span></div>
       <button class="btn ghost" id="g-menu">Menú</button>
     </div>
     <div class="stage" id="stage">
@@ -534,6 +547,20 @@ const OBJ = {"arit3":{"p2":[327,100,118,50],"p3":[474,74,162,66],"p4":[662,63,11
 const VIDEO_ID = "1hnNrXLY1UwU5xw31cI8tAzA5a-xdzBZA";
 const $ = s => document.querySelector(s);
 const framed = (() => { try { return window.self !== window.top } catch (e) { return true } })();
+
+/* ---------- Símbolos matemáticos de fondo (pantallas de menú) ---------- */
+(() => {
+  const syms = [["+", 6, 3.6, 16, -2], ["−", 18, 2.4, 13, -9], ["×", 30, 4.2, 19, -4], ["÷", 42, 2.8, 15, -11],
+    ["=", 54, 3.2, 17, -1], ["π", 66, 2.6, 14, -7], ["√", 76, 3.8, 18, -13], ["∞", 86, 2.4, 12, -5], ["%", 94, 3, 16, -8]];
+  const html = `<div class="mathfx" aria-hidden="true">${syms.map(([s, left, size, dur, delay]) =>
+    `<span style="left:${left}%;font-size:${size}rem;animation-duration:${dur}s;animation-delay:${delay}s">${s}</span>`).join("")}</div>`;
+  document.querySelectorAll(".menu-bg").forEach(el => el.insertAdjacentHTML("afterbegin", html));
+  addEventListener("pointermove", e => {
+    if (e.pointerType && e.pointerType !== "mouse") return;
+    const dx = (e.clientX / innerWidth - .5) * 16, dy = (e.clientY / innerHeight - .5) * 16;
+    document.querySelectorAll(".mathfx").forEach(el => el.style.transform = `translate(${dx}px,${dy}px)`);
+  });
+})();
 
 /* ---------- Robot guía (SVG) ---------- */
 const BOT_SVG = `<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
@@ -769,9 +796,10 @@ function makeFx(L, W, H) {
   return f;
 }
 function spawnPart(L, W, H) {
-  if (L.fx === "lava") return { x: rnd(0, W), y: rnd(H - 45, H), vx: rnd(-8, 8), vy: rnd(-45, -18), life: rnd(1.5, 3), t: 0, c: Math.random() < .5 ? "255,150,40" : "255,220,90", r: rnd(1, 2.4) };
+  if (L.fx === "lava") { const glow = Math.random() < .35; return { x: rnd(0, W), y: rnd(H - 45, H), vx: rnd(-8, 8), vy: rnd(-45, -18), life: rnd(1.5, 3), t: 0, c: Math.random() < .5 ? "255,150,40" : "255,220,90", r: rnd(1, 2.4), glow } }
   if (L.fx === "water") return { x: rnd(0, W), y: rnd(H - 40, H), vx: rnd(-4, 4), vy: rnd(-20, -8), life: rnd(1.5, 3), t: 0, c: "170,245,255", r: rnd(1, 2.2), ring: 1 };
-  if (L.fx === "cave") return { x: rnd(0, W), y: rnd(-H * 1.5, H), vx: rnd(-5, 5), vy: rnd(-14, -5), life: rnd(2, 4), t: 0, c: Math.random() < .3 ? "190,140,255" : "120,230,255", r: rnd(.8, 1.8) };
+  if (L.fx === "cave") { const glow = Math.random() < .3; return { x: rnd(0, W), y: rnd(-H * 1.5, H), vx: rnd(-5, 5), vy: rnd(-14, -5), life: rnd(2, 4), t: 0, c: glow ? "255,230,140" : (Math.random() < .3 ? "190,140,255" : "120,230,255"), r: glow ? rnd(1.5, 2.4) : rnd(.8, 1.8), glow } } // luciérnagas cálidas mezcladas con el polvo de cueva
+  if (Math.random() < .05) return { x: rnd(0, W), y: rnd(-H * 1.5, H), vx: rnd(-3, -1), vy: 0, life: rnd(10, 16), t: 0, c: Math.random() < .5 ? "120,100,220" : "80,160,255", r: rnd(50, 95), cloud: 1 }; // nubes de nebulosa, grandes y lentas
   return { x: rnd(0, W), y: rnd(-H * 1.5, H), vx: rnd(-10, -3), vy: rnd(-2, 2), life: rnd(2, 4), t: 0, c: Math.random() < .4 ? "200,160,255" : "150,220,255", r: rnd(.6, 1.6) };
 }
 
@@ -801,7 +829,7 @@ function loseLife(msg) {
   if (G.lives <= 0) { G.lives = MAX_LIVES; updLives(); return true }
   return false;
 }
-function updGems() { $("#g-gems").textContent = "💎 " + gemsTotal }
+function updGems() { $("#g-gems-n").textContent = gemsTotal }
 
 function moverOff(m, t) { const a = TAU * t / m.T + (m.ph || 0); return [(m.ax || 0) * Math.sin(a), (m.ay || 0) * Math.sin(a)] }
 function plats() {
@@ -915,6 +943,23 @@ function drawQBox(c, x, yb, t, s = 1) {
   const b = spr("alg3_box"); if (!b.complete) return; const w = 44 * s, h = w * b.height / b.width;
   c.drawImage(b, x - w / 2, yb - h + 2, w, h);
 }
+/* Gema con corte de diamante: mitad clara arriba, oscura abajo, halo pulsante y destello. */
+function drawGem(c, x, y, sx, t) {
+  const h = 9, pulse = .5 + .5 * Math.sin(t * 3 + x);
+  c.save();
+  const glow = c.createRadialGradient(x, y, 0, x, y, 15);
+  glow.addColorStop(0, `rgba(140,255,225,${.32 + .16 * pulse})`); glow.addColorStop(1, "rgba(140,255,225,0)");
+  c.fillStyle = glow; c.beginPath(); c.arc(x, y, 15, 0, TAU); c.fill();
+  c.beginPath(); c.moveTo(x, y - h); c.lineTo(x + sx, y); c.lineTo(x - sx, y); c.closePath();
+  c.fillStyle = "rgba(196,255,242,.98)"; c.fill();
+  c.beginPath(); c.moveTo(x, y + h); c.lineTo(x + sx, y); c.lineTo(x - sx, y); c.closePath();
+  c.fillStyle = "rgba(60,205,175,.96)"; c.fill();
+  c.strokeStyle = "rgba(255,255,255,.85)"; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(x, y - h); c.lineTo(x + sx, y); c.lineTo(x, y + h); c.lineTo(x - sx, y); c.closePath(); c.stroke();
+  c.strokeStyle = "rgba(255,255,255,.5)"; c.beginPath(); c.moveTo(x, y - h); c.lineTo(x, y + h); c.stroke();
+  if (pulse > .82) { c.fillStyle = "rgba(255,255,255,.9)"; c.beginPath(); c.arc(x - sx * .35, y - h * .35, 1.3, 0, TAU); c.fill() }
+  c.restore();
+}
 
 function buildBg(im) {
   const W = im.naturalWidth / RES, H = im.naturalHeight / RES, top = H * 3, bot = H * 2;
@@ -969,7 +1014,15 @@ function draw() {
   if (L.fx === "water") {
     for (let i = 0; i < 26; i++) { const y = rowH - 52 + (i % 7) * 7, x = ((i * 97 + t * (i % 2 ? 18 : -14)) % (rowW + 160) + rowW + 160) % (rowW + 160) - 80; ctx.fillStyle = `rgba(190,250,255,${.1 + .12 * Math.sin(t * 2.5 + i * 1.3)})`; ctx.beginPath(); ctx.ellipse(x, y, 26 + (i % 3) * 8, 1.6, 0, 0, TAU); ctx.fill() }
   }
-  for (const p of G.parts) { const f = 1 - p.t / p.life; ctx.fillStyle = `rgba(${p.c},${Math.min(1, f * 1.5) * .8})`; if (p.trail) { ctx.fillRect(p.x - 5, p.y - p.r * f * .5, 10 + 8 * f, p.r * f); continue } ctx.beginPath(); p.ring ? ctx.arc(p.x, p.y, p.r * 1.4, 0, TAU) : ctx.arc(p.x + Math.sin(p.t * 3 + p.x) * 3, p.y, p.r, 0, TAU); ctx.fill() }
+  for (const p of G.parts) {
+    const f = 1 - p.t / p.life;
+    if (p.cloud) { const cg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r); cg.addColorStop(0, `rgba(${p.c},${f * .12})`); cg.addColorStop(1, `rgba(${p.c},0)`); ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill(); continue }
+    if (p.trail) { ctx.fillStyle = `rgba(${p.c},${Math.min(1, f * 1.5) * .8})`; ctx.fillRect(p.x - 5, p.y - p.r * f * .5, 10 + 8 * f, p.r * f); continue }
+    const px = p.x + Math.sin(p.t * 3 + p.x) * 3;
+    if (p.glow) { const flick = .6 + .4 * Math.sin(p.t * 6 + p.x); const gg = ctx.createRadialGradient(px, p.y, 0, px, p.y, p.r * 4); gg.addColorStop(0, `rgba(${p.c},${f * .55 * flick})`); gg.addColorStop(1, `rgba(${p.c},0)`); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(px, p.y, p.r * 4, 0, TAU); ctx.fill(); ctx.fillStyle = `rgba(255,255,255,${f * .9 * flick})` }
+    else { ctx.fillStyle = `rgba(${p.c},${Math.min(1, f * 1.5) * .8})` }
+    ctx.beginPath(); p.ring ? ctx.arc(px, p.y, p.r * 1.4, 0, TAU) : ctx.arc(px, p.y, p.r, 0, TAU); ctx.fill();
+  }
   ctx.globalCompositeOperation = "source-over";
   // puentes de luz
   const br = (L.bridges || []).concat(G.exitOn && L.exit ? [L.exit] : []);
@@ -979,7 +1032,7 @@ function draw() {
   // obstáculos en movimiento
   if (L.obst) for (const o of L.obst) { const [ox, oy2, rot] = obstPos(o, t), im2 = spr(o.spr); if (!im2.complete) continue; const key = o.spr.split("_"); const r = OBJ[key[0]][key[1]]; ctx.save(); ctx.translate(ox, oy2); ctx.rotate(rot); if (o.at) ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] / 2, -r[3] / 2, r[2], r[3]); ctx.restore() }
   // gemas
-  for (const g of G.gems) if (!g.got) { const sx = Math.abs(Math.cos(t * 2.4 + g.x)) * 7 + 1, yy = g.y + Math.sin(t * 3 + g.x) * 3; ctx.save(); ctx.fillStyle = "rgba(120,255,220,.95)"; ctx.beginPath(); ctx.moveTo(g.x, yy - 9); ctx.lineTo(g.x + sx, yy); ctx.lineTo(g.x, yy + 9); ctx.lineTo(g.x - sx, yy); ctx.closePath(); ctx.fill(); ctx.restore() }
+  for (const g of G.gems) if (!g.got) { const sx = Math.abs(Math.cos(t * 2.4 + g.x)) * 7 + 1, yy = g.y + Math.sin(t * 3 + g.x) * 3; drawGem(ctx, g.x, yy, sx, t) }
   // caja ?
   if (L.box && L.box.spr && G.boxGone < 1) {
     const key = L.box.spr.split("_"), r = OBJ[key[0]][key[1]], im2 = spr(L.box.spr), bob = Math.sin(t * 2.6) * 3.5;
