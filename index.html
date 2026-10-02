@@ -799,68 +799,74 @@ function img(n, dir) { const key = (dir || "") + n; if (!imgs[key]) { const i = 
 const spr = n => img(n, "obj/");
 const sheet = new Image(); sheet.src = "assets/nina.png";
 // ===== Rig de carrera =====
-// El sprite trae 3 frames de correr idénticos, así que la carrera se anima por piezas:
-// torso y brazos recortados del frame 0 (los brazos giran en el hombro), piernas dibujadas
-// con cinemática inversa sobre una trayectoria del tobillo, y el tenis recortado del sprite.
+// El sprite trae 3 frames de correr idénticos, así que la carrera se anima por piezas sobre
+// un ciclo clásico de 10 poses (contacto, amortigua, paso, impulso, vuelo — y lo mismo con la
+// otra pierna): torso recortado del frame 0, brazos y piernas dibujados con los colores del
+// propio sprite, y los tenis recortados del sprite.
 function makeRig(sheet) {
-  const CWr = 260, CHr = 420;
-  const cut = (poly, inv, x0 = 0, y0 = 0, w = CWr, h = CHr) => {
-    const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d");
-    g.drawImage(sheet, x0, y0, w, h, 0, 0, w, h);
+  const W = 260, H = 420;
+  const cut = (polys, inv) => {
+    const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
+    g.drawImage(sheet, 0, 0, W, H, 0, 0, W, H);
     g.globalCompositeOperation = inv ? "destination-out" : "destination-in";
-    g.beginPath(); for (const p of poly) { g.moveTo(p[0][0] - x0, p[0][1] - y0); for (const q of p) g.lineTo(q[0] - x0, q[1] - y0); g.closePath() }
+    g.beginPath(); for (const p of polys) { g.moveTo(p[0][0], p[0][1]); for (const q of p) g.lineTo(q[0], q[1]); g.closePath() }
     g.fill(); return c;
   };
   const FA = [[178, 201], [195, 198], [210, 186], [245, 182], [245, 256], [200, 256], [182, 236]];
-  const BA = [[40, 197], [111, 194], [111, 232], [100, 262], [40, 262]];
-  const LEGS = [[0, 262], [260, 262], [260, 420], [0, 420]];
-  const torso = cut([FA, BA, LEGS], true);
-  const armF = cut([[[163, 204], [195, 198], [210, 186], [245, 182], [245, 256], [200, 256], [163, 242]]], false);
-  const armB = cut([[[40, 197], [128, 194], [128, 240], [100, 262], [40, 262]]], false);
+  const BA = [[30, 197], [111, 194], [111, 232], [100, 262], [30, 262]];
+  const torso = cut([FA, BA, [[0, 262], [W, 262], [W, H], [0, H]]], true);
   const shoe = cut([[[186, 386], [200, 379], [214, 371], [255, 368], [255, 420], [186, 420]]], false);
-  const shoeD = document.createElement("canvas"); shoeD.width = CWr; shoeD.height = CHr;
-  { const g = shoeD.getContext("2d"); g.drawImage(shoe, 0, 0); g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(14,22,44,.3)"; g.fillRect(0, 0, CWr, CHr) }
-  return { torso, armF, armB, shoe, shoeD };
+  const shoeD = document.createElement("canvas"); shoeD.width = W; shoeD.height = H;
+  { const g = shoeD.getContext("2d"); g.drawImage(shoe, 0, 0); g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(14,22,44,.3)"; g.fillRect(0, 0, W, H) }
+  const fist = cut([[[214, 186], [244, 186], [244, 226], [214, 226]]], false);
+  const fistD = document.createElement("canvas"); fistD.width = W; fistD.height = H;
+  { const g = fistD.getContext("2d"); g.drawImage(fist, 0, 0); g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(60,30,40,.18)"; g.fillRect(0, 0, W, H) }
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(sheet, 0, 0, W, H, 0, 0, W, H);
+  const px = (x, y) => { const d = g.getImageData(x, y, 1, 1).data; return [d[0], d[1], d[2]] };
+  const rgb = (a, m = 1) => `rgb(${a.map(v => Math.round(v * m)).join(",")})`;
+  const sl = px(190, 215), cf = px(80, 232), sk = px(225, 207);
+  return { torso, shoe, shoeD, fist, fistD, sleeve: rgb(sl), sleeveD: rgb(sl, .72), cuff: rgb(cf), cuffD: rgb(cf, .75), skin: rgb(sk), skinD: rgb(sk, .85) };
 }
-// trayectoria del tobillo respecto a la cadera (px del frame), ciclo 0..1
-const RUN_KEYS = [[0, 58, 124], [.14, 22, 127], [.30, -24, 126], [.42, -60, 112], [.55, -66, 78], [.70, -22, 60], [.82, 30, 70], [.92, 58, 100]];
-function runFoot(t) {
-  t = ((t % 1) + 1) % 1; const KK = RUN_KEYS, n = KK.length;
-  let i = n - 1; for (let j = 0; j < n; j++) if (KK[j][0] <= t) i = j;
-  const a = KK[i], b = KK[(i + 1) % n], ta = a[0], tb = b[0] + (i + 1 >= n ? 1 : 0);
-  const u = (t - ta) / (tb - ta), p0 = KK[(i - 1 + n) % n], p3 = KK[(i + 2) % n];
+// [fase, muslo°, rodilla°] — muslo respecto a la vertical (+ hacia delante), rodilla = flexión
+const RUN_KEYS = [[0, 30, 8], [.1, 12, 38], [.2, -8, 22], [.3, -30, 14], [.4, -40, 55], [.5, -26, 95], [.6, -24, 118], [.7, 12, 128], [.8, 46, 98], [.9, 56, 42]];
+function runPose(t) {
+  t = ((t % 1) + 1) % 1; const KK = RUN_KEYS, n = KK.length, i = Math.floor(t * 10) % n, u = t * 10 - Math.floor(t * 10);
+  const p0 = KK[(i - 1 + n) % n], a = KK[i], b = KK[(i + 1) % n], p3 = KK[(i + 2) % n];
   const cr = (A, B, C, D) => .5 * (2 * B + (-A + C) * u + (2 * A - 5 * B + 4 * C - D) * u * u + (-A + 3 * B - 3 * C + D) * u * u * u);
-  return [cr(p0[1], a[1], b[1], p3[1]), cr(p0[2], a[2], b[2], p3[2])];
+  return [cr(p0[1], a[1], b[1], p3[1]) * Math.PI / 180, cr(p0[2], a[2], b[2], p3[2]) * Math.PI / 180];
 }
 function drawRun(ctx, rig, ph) {
-  // origen: pies en (0,0); frame px (fx,fy) -> (fx-130, fy-420)
-  const HX = 132 - 130, HY0 = 258 - 420, L1 = 72, L2 = 68;
-  const bob = -5 * Math.cos(ph * Math.PI * 4 - .9) - 1;
-  const HY = HY0 + bob;
-  const leg = (t, near) => {
-    const [fx, fy] = runFoot(t); const ax = HX + fx, ay = HY0 + fy; // el pie va referido al suelo: el rebote de la cadera no lo despega
-    let dx = ax - HX, dy = ay - HY, d = Math.hypot(dx, dy); const m = L1 + L2 - .5; if (d > m) { dx *= m / d; dy *= m / d; d = m }
-    const a = Math.atan2(dy, dx), k = Math.acos(Math.min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d)));
-    const kx = HX + Math.cos(a - k) * L1, ky = HY + Math.sin(a - k) * L1; const ex = HX + dx, ey = HY + dy;
-    const sa = Math.atan2(ey - ky, ex - kx) - Math.PI / 2; // inclinación de la espinilla
-    // zapato: plano en apoyo, punta abajo al despegar, punta arriba al alcanzar
-    const tt = ((t % 1) + 1) % 1; let rot = tt < .3 ? 0 : tt < .62 ? (tt - .3) / .32 * .95 : tt < .9 ? .95 - (tt - .62) / .28 * 1.2 : -.25 + (tt - .9) / .1 * .25;
-    const col = near ? "#1e2c42" : "#151f31", ol = "#0a0f1a";
-    ctx.lineCap = "round"; ctx.lineJoin = "round";
-    ctx.strokeStyle = ol; ctx.lineWidth = 31; ctx.beginPath(); ctx.moveTo(HX, HY - 6); ctx.lineTo(kx, ky); ctx.lineTo(ex, ey); ctx.stroke();
-    ctx.strokeStyle = col; ctx.lineWidth = 25; ctx.beginPath(); ctx.moveTo(HX, HY - 6); ctx.lineTo(kx, ky); ctx.lineTo(ex, ey); ctx.stroke();
-    // brillo del pliegue
-    ctx.strokeStyle = near ? "rgba(90,120,170,.35)" : "rgba(70,95,140,.22)"; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(HX + 6, HY + 4); ctx.lineTo(kx + 5, ky - 2); ctx.stroke();
-    ctx.save(); ctx.translate(ex, ey); ctx.rotate(rot); ctx.drawImage(near ? rig.shoe : rig.shoeD, -199 + 130 - 130, -384); ctx.restore();
+  const L1 = 74, L2 = 70, SH = 35, OL = "#0a0f1a"; // SH: del tobillo a la suela
+  const legs = [ph, ph + .5].map(t => { const [th, kn] = runPose(t), sh = th - kn; const kx = Math.sin(th) * L1, ky = Math.cos(th) * L1; return { th, sh, kx, ky, ax: kx + Math.sin(sh) * L2, ay: ky + Math.cos(sh) * L2 } });
+  const u = ((ph % .5) + .5) % .5, lift = u > .3 && u < .5 ? Math.sin(Math.PI * (u - .3) / .2) * 9 : 0; // fase de vuelo
+  const hy = -(Math.max(legs[0].ay, legs[1].ay) + SH) - lift, hx = 0;
+  const lean = .1 + Math.sin(ph * Math.PI * 4) * .015;
+  const leg = (l, near) => {
+    ctx.save(); ctx.translate(hx, hy); ctx.lineCap = ctx.lineJoin = "round";
+    const path = () => { ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(l.kx, l.ky); ctx.lineTo(l.ax, l.ay) };
+    path(); ctx.strokeStyle = OL; ctx.lineWidth = 32; ctx.stroke();
+    path(); ctx.strokeStyle = near ? "#1f2d45" : "#141d30"; ctx.lineWidth = 26; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(l.kx * .25 + 5, l.ky * .25); ctx.lineTo(l.kx + 4, l.ky - 3); ctx.strokeStyle = near ? "rgba(110,140,190,.32)" : "rgba(80,105,150,.18)"; ctx.lineWidth = 5; ctx.stroke();
+    const gy = -hy - SH - l.ay, flat = Math.max(0, Math.min(1, gy / 22)); // pegado al suelo -> suela plana
+    const rot = Math.max(-.45, Math.min(1.25, -l.sh * (l.sh < 0 ? .85 : .55))) * flat;
+    ctx.translate(l.ax, l.ay); ctx.rotate(rot); ctx.drawImage(near ? rig.shoe : rig.shoeD, -199, -384); ctx.restore();
   };
-  const s = Math.sin(ph * Math.PI * 2);
-  // brazo trasero
-  ctx.save(); ctx.translate(122 - 130, 206 - 420 + bob); ctx.rotate(.4 * s); ctx.drawImage(rig.armB, -122, -206); ctx.restore();
-  leg(ph + .5, false);
-  leg(ph, true);
-  ctx.drawImage(rig.torso, -130, -420 + bob);
-  ctx.save(); ctx.translate(170 - 130, 200 - 420 + bob); ctx.rotate(.4 * s); ctx.drawImage(rig.armF, -170, -200); ctx.restore();
+  const arm = (sx, sy, th, near) => { // brazo: hombro -> codo -> puño, codo flexionado
+    const a = th, f = th + 1.45 + Math.max(0, th) * .35, U = 46, F = 40;
+    const ex = sx + Math.sin(a) * U, ey = sy + Math.cos(a) * U, wx = ex + Math.sin(f) * F, wy = ey + Math.cos(f) * F;
+    const sx2 = sx + Math.sin(a) * 12, sy2 = sy + Math.cos(a) * 12;
+    ctx.lineCap = ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(sx2, sy2); ctx.lineTo(ex, ey); ctx.lineTo(wx, wy); ctx.strokeStyle = OL; ctx.lineWidth = 30; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.lineTo(wx, wy); ctx.strokeStyle = near ? rig.sleeve : rig.sleeveD; ctx.lineWidth = 24; ctx.stroke();
+    const cx = wx - Math.sin(f) * 8, cy = wy - Math.cos(f) * 8;
+    ctx.beginPath(); ctx.moveTo(cx - Math.sin(f) * 6, cy - Math.cos(f) * 6); ctx.lineTo(cx + Math.sin(f) * 3, cy + Math.cos(f) * 3); ctx.strokeStyle = near ? rig.cuff : rig.cuffD; ctx.lineWidth = 25; ctx.stroke();
+    ctx.save(); ctx.translate(wx, wy); ctx.rotate(Math.PI / 2 - f); ctx.drawImage(near ? rig.fist : rig.fistD, -216, -206); ctx.restore();
+  };
+  const aF = .1 - legs[0].th * .95, aB = .1 - legs[1].th * .95; // cada brazo va contrario a su pierna
+  const upper = (fn) => { ctx.save(); ctx.translate(hx, hy); ctx.rotate(lean); fn(); ctx.restore() };
+  upper(() => arm(-7, -50, aB, false));
+  leg(legs[1], false); leg(legs[0], true);
+  upper(() => { ctx.drawImage(rig.torso, -132, -258); arm(36, -53, aF, true) });
 }
 // Losas de hielo/piedra flotantes (cara superior clara, frente azul, contorno marino como el arte).
 function drawSlabs(ctx, x0, x1, y, t) {
@@ -884,7 +890,7 @@ const rigs = {}; function rigFor(sh) { if (!sh.complete || !sh.naturalWidth) ret
 const AVATARS = { nina: { src: "assets/nina.png", name: "Niña" }, nino: { src: "assets/nino.png", name: "Niño" } };
 new Image().src = AVATARS.nino.src;
 function applyAvatar(k) { const a = AVATARS[k] || AVATARS.nina; if (!sheet.src.endsWith(a.src)) sheet.src = a.src; $("#app").style.setProperty("--avatar", `url(${a.src})`) }
-const CW = 260, CH = 420, K = 0.25, FLY_K = .72; // FLY_K: tamaño del avatar al volar
+const CW = 260, CH = 420, K = 0.22, FLY_K = .72; // FLY_K: tamaño del avatar al volar
 const keys = { left: 0, right: 0, up: 0, down: 0 };
 let running = false, G = null, last = 0, gemsTotal = 0;
 const TAU = Math.PI * 2;
@@ -1295,7 +1301,7 @@ function draw() {
   if (G.fly) sc *= FLY_K;
   if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
   ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(.35 - G.flyTilt); else if (lean) ctx.rotate(lean);
-  if (run) drawRun(ctx, run, G.x * G.face / 94); // fase ligada a la distancia: el pie no patina
+  if (run) drawRun(ctx, run, G.x * G.face / 103); // fase ligada a la distancia: el pie no patina
   else ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH);
   ctx.restore(); ctx.globalAlpha = 1;
   // chispas
