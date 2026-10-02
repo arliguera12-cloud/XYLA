@@ -854,7 +854,7 @@ function startLevel(area, idx) {
   G = { area, idx, L, im, x: L.spawn, y: L.fly ? L.spawnY : L.plats[0][2], vx: 0, vy: 0, ground: !L.fly, face: 1, fly: !!L.fly,
         t: 0, answered: false, busy: true, exitOn: false, star: false, cp: L.spawn, trail: [], done: null, inv: 0, on: null,
         portalOpen: L.portal && L.portal.open ? 1 : 0, absorb: 0, boxGone: 0, burst: [], gems: (L.gems || []).map(g => ({ x: g[0], y: g[1], got: 0 })),
-        cups: null, cupPick: false, fx: null, parts: [], lives: MAX_LIVES, camLock: null, emerge: 1, warpFlash: 0 };
+        cups: null, cupPick: false, fx: null, parts: [], lives: MAX_LIVES, camLock: null, emerge: 1, warpFlash: 0, flyTilt: 0, nearMiss: {} };
   setTheme(area === "alg" ? "alg" : null);
   const p0 = platAt(G.x); if (!L.fly && p0) G.y = p0[2];
   boom(G.x, G.y - 30, "200,230,255"); // chispazo de llegada: el personaje se "materializa" al entrar al nivel
@@ -913,20 +913,31 @@ function step(dt) {
     G.vx = dir * 230; G.vy = busy ? 0 : (keys.down - keys.up) * 200;
     G.kb = (G.kb || 0) * Math.pow(.02, dt);               // empuje del golpe que se va frenando
     G.x += (G.vx + G.kb) * dt; G.y = Math.max(40, Math.min(rowH - 8, G.y + G.vy * dt));
+    // inclinación dinámica: sube/baja según la velocidad vertical, como un jetpack real (Jetpack Joyride)
+    const tiltTarget = Math.max(-1, Math.min(1, -G.vy / 180)) * .55;
+    G.flyTilt += (tiltTarget - G.flyTilt) * Math.min(1, dt * 7);
+    const tailA = .35 + G.flyTilt * .5;
     G.trail.push({ x: G.x - 20 * G.face, y: G.y - 22, a: 1 }); if (G.trail.length > 24) G.trail.shift();
+    // llama de propulsión: partículas cálidas saliendo de la espalda, más intensas si está subiendo
+    const thrust = .55 + Math.max(0, -G.vy) / 150;
+    if (Math.random() < dt * 30 * thrust) { const tx = G.x - G.face * Math.cos(tailA) * 34, ty = G.y - Math.sin(tailA) * -34 + 14; G.parts.push({ x: tx + rnd(-3, 3), y: ty + rnd(-3, 3), vx: -G.face * rnd(40, 90) + G.vx * .3, vy: rnd(-10, 10), t: 0, life: rnd(.25, .4), c: Math.random() < .5 ? "255,170,60" : "255,220,120", r: rnd(2, 4), jet: 1 }) }
     // colisión precisa: tres círculos a lo largo del cuerpo inclinado (cabeza, torso, piernas)
     if (G.inv <= 0) {
       const Hb = CH * K * FLY_K, lean = .35;
       const pts = [.18, .5, .82].map(u => [G.x + G.face * Math.sin(lean) * u * Hb, G.y - Math.cos(lean) * u * Hb]);
       const rb = Hb * .14;
+      let hitOne = false;
       hit: for (const o of L.obst) { const [ox, oy] = obstPos(o, G.t); for (const [px, py] of pts) if (Math.hypot(px - ox, py - oy) < o.c[2] * .82 + rb) {
+        hitOne = true;
         const over = loseLife("¡Esquiva los asteroides!");
         G.inv = over ? 2 : 1.2; G.kb = -330 * G.face;
         if (over) { G.x = L.spawn; G.y = L.spawnY; G.kb = 0; G.trail = [] }
         for (let i = 0; i < 16; i++) G.burst.push({ x: px, y: py, vx: rnd(-110, 110), vy: rnd(-110, 50), t: 0, life: .6, c: "255,120,140" });
         break hit } }
+      // "casi me rozó": premia esquivar por poco, una sola vez por obstáculo (truco clásico de juegos de esquivar)
+      if (!hitOne) for (const o of L.obst) { if (G.nearMiss[o.spr + o.c[0]]) continue; const [ox, oy] = obstPos(o, G.t); const d = Math.hypot(G.x - ox, G.y - oy); if (d < o.c[2] * 1.7 && Math.abs(G.x - ox) < 40) { G.nearMiss[o.spr + o.c[0]] = 1; toast("¡Por poco!"); tone(880, .06, "sine", .08); for (let i = 0; i < 6; i++) G.parts.push({ x: (G.x + ox) / 2, y: (G.y + oy) / 2, vx: rnd(-40, 40), vy: rnd(-40, 40), t: 0, life: .3, c: "255,255,255", r: 1.4, glow: 1 }) } }
     }
-    if (G.x >= L.land) { G.fly = false; G.y = L.plats[0][2]; G.vy = 0; G.kb = 0; G.ground = true; G.trail = []; dust(G.x, G.y, 16); toast("¡Aterrizaje!") }
+    if (G.x >= L.land) { G.fly = false; G.y = L.plats[0][2]; G.vy = 0; G.kb = 0; G.ground = true; G.trail = []; G.flyTilt = 0; dust(G.x, G.y, 16); toast("¡Aterrizaje!") }
   } else {
     // arrastre de plataforma móvil
     if (G.on && G.ground) { const [ax, ay] = moverOff(G.on, prevT), [bx, by] = moverOff(G.on, G.t); G.x += bx - ax; G.y += by - ay }
@@ -1137,6 +1148,7 @@ function draw() {
     const f = 1 - p.t / p.life;
     if (p.cloud) { const cg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r); cg.addColorStop(0, `rgba(${p.c},${f * .12})`); cg.addColorStop(1, `rgba(${p.c},0)`); ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill(); continue }
     if (p.trail) { ctx.fillStyle = `rgba(${p.c},${Math.min(1, f * 1.5) * .8})`; ctx.fillRect(p.x - 5, p.y - p.r * f * .5, 10 + 8 * f, p.r * f); continue }
+    if (p.jet) { const jg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * f * 2.2); jg.addColorStop(0, `rgba(${p.c},${f * .9})`); jg.addColorStop(1, `rgba(${p.c},0)`); ctx.fillStyle = jg; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * f * 2.2, 0, TAU); ctx.fill(); continue }
     const px = p.x + Math.sin(p.t * 3 + p.x) * 3;
     if (p.glow) { const flick = .6 + .4 * Math.sin(p.t * 6 + p.x); const gg = ctx.createRadialGradient(px, p.y, 0, px, p.y, p.r * 4); gg.addColorStop(0, `rgba(${p.c},${f * .55 * flick})`); gg.addColorStop(1, `rgba(${p.c},0)`); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(px, p.y, p.r * 4, 0, TAU); ctx.fill(); ctx.fillStyle = `rgba(255,255,255,${f * .9 * flick})` }
     else { ctx.fillStyle = `rgba(${p.c},${Math.min(1, f * 1.5) * .8})` }
@@ -1149,7 +1161,16 @@ function draw() {
   // plataformas móviles
   if (L.movers) for (const m of L.movers) { const im2 = spr(m.spr), r = OBJ[m.spr.split("_")[0]][m.spr.split("_")[1]], [dx, dy] = moverOff(m, t); if (im2.complete) ctx.drawImage(im2, r[0] + dx, r[1] + dy, r[2], r[3]); ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(80,220,255,${.18 + .12 * pulse})`; ctx.beginPath(); ctx.ellipse((m.walk[0] + m.walk[1]) / 2 + dx, r[1] + r[3] + dy - 6, (m.walk[1] - m.walk[0]) * .3, 5, 0, 0, TAU); ctx.fill(); ctx.restore() }
   // obstáculos en movimiento
-  if (L.obst) for (const o of L.obst) { const [ox, oy2, rot] = obstPos(o, t), im2 = spr(o.spr); if (!im2.complete) continue; const key = o.spr.split("_"); const r = OBJ[key[0]][key[1]]; ctx.save(); ctx.translate(ox, oy2); ctx.rotate(rot); if (o.at) ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] / 2, -r[3] / 2, r[2], r[3]); ctx.restore() }
+  if (L.obst) for (const o of L.obst) {
+    const [ox, oy2, rot] = obstPos(o, t), im2 = spr(o.spr); if (!im2.complete) continue;
+    const dangerPulse = .5 + .5 * Math.sin(t * 5 + o.c[0]);
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    const dg = ctx.createRadialGradient(ox, oy2, 0, ox, oy2, o.c[2] * 1.15);
+    dg.addColorStop(0, `rgba(255,70,70,${.2 + .18 * dangerPulse})`); dg.addColorStop(1, "rgba(255,70,70,0)");
+    ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(ox, oy2, o.c[2] * 1.15, 0, TAU); ctx.fill();
+    ctx.restore();
+    const key = o.spr.split("_"); const r = OBJ[key[0]][key[1]]; ctx.save(); ctx.translate(ox, oy2); ctx.rotate(rot); if (o.at) ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] / 2, -r[3] / 2, r[2], r[3]); ctx.restore();
+  }
   // gemas
   for (const g of G.gems) if (!g.got) { const sx = Math.abs(Math.cos(t * 2.4 + g.x)) * 7 + 1, yy = g.y + Math.sin(t * 3 + g.x) * 3; drawGem(ctx, g.x, yy, sx, t) }
   // caja ?
@@ -1186,7 +1207,7 @@ function draw() {
   const sq = (G.squash || 0) * .12; // positivo = aplasta al aterrizar, negativo = estira al despegar
   if (G.fly) sc *= FLY_K;
   if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
-  ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(0.35); else if (lean) ctx.rotate(lean);
+  ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(.35 - G.flyTilt); else if (lean) ctx.rotate(lean);
   ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH); ctx.restore(); ctx.globalAlpha = 1;
   // chispas
   ctx.globalCompositeOperation = "lighter";
