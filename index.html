@@ -538,8 +538,10 @@ arit:[
   movers:[{spr:"arit3_p2",walk:[335,437,120],ax:50,T:3.2},{spr:"arit3_p3",walk:[482,628,91],ay:26,T:2.6},{spr:"arit3_p4",walk:[670,773,80],ay:24,T:2.2,ph:1.5},{spr:"arit3_p5",walk:[823,945,51],ax:65,T:3.6}],
   box:{spr:"arit3_box",x:1325},portal:{x:1460,y:70},gems:[[296,70],[555,35],[722,25],[1080,15]]},
  {img:"arit4_bg",fx:"space",fly:true,spawn:40,spawnY:75,
-  obst:[{spr:"arit4_o0",c:[257,85,30],ay:20,T:3,rot:.4},{spr:"arit4_o1",c:[843,48,28],ay:22,T:2.4,rot:-.5},{spr:"arit4_o2",c:[723,100,28],ay:-22,T:2.8,rot:.6},{spr:"arit4_o3",c:[625,91,22],ay:28,T:2,rot:2},{spr:"arit4_o4",c:[930,95,24],ay:-26,T:2.2,rot:-2},{spr:"arit4_o5",c:[1095,43,17],ay:24,T:1.8,rot:2.5},{spr:"arit4_o1",c:[1185,78,28],ay:-22,T:2.6,rot:.5,at:[843,48]}],
-  land:1245,plats:[[1245,1400,101]],box:{spr:"arit4_box",x:1332},exit:[1400,1516,101],portal:{x:1465,y:93},gems:[[440,60],[780,105],[1010,80]]},
+  // Obstáculos repartidos con espacio parejo (~150px entre centros) y alternando arriba/abajo
+  // para que siempre quede un carril libre y predecible en vez de un muro de asteroides.
+  obst:[{spr:"arit4_o0",c:[320,60,30],ay:14,T:3,rot:.4},{spr:"arit4_o3",c:[470,98,22],ay:14,T:2.4,rot:2},{spr:"arit4_o2",c:[620,60,28],ay:14,T:2.8,rot:.6},{spr:"arit4_o4",c:[770,98,24],ay:14,T:2.2,rot:-2},{spr:"arit4_o1",c:[920,60,28],ay:14,T:2.6,rot:-.5},{spr:"arit4_o5",c:[1070,92,17],ay:12,T:1.8,rot:2.5}],
+  land:1245,plats:[[1245,1400,101]],box:{spr:"arit4_box",x:1332},exit:[1400,1516,101],portal:{x:1465,y:93},gems:[[395,75],[695,40],[995,70]]},
  {img:"arit5",fx:"space",plats:[[0,1516,120]],spawn:60,goal:1120,portal:{x:1290,y:103,s:1.25},gems:[[400,70],[700,70],[1000,70]]}],
 alg:[
  {img:"alg1",fx:"cave",plats:[[0,1580,160]],spawn:60,portal:{x:1298,y:150,s:1.4,open:1},gems:[[450,110],[800,110],[1050,110]]},
@@ -701,7 +703,7 @@ function ask(q) {
           if (over) {
             fb.className = "feedback no"; fb.textContent = "Se te acabaron las vidas. Vamos a reiniciar este nivel.";
             qm.querySelectorAll(".opt").forEach(x => x.disabled = true);
-            const L = G.L; G.x = L.spawn; G.y = L.fly ? L.spawnY : L.plats[0][2]; G.cp = L.spawn; G.vx = 0; G.vy = 0;
+            const L = G.L; G.x = L.spawn; G.y = L.fly ? L.spawnY : L.plats[0][2]; G.cp = L.spawn; G.vx = 0; G.vy = 0; G.trail = [];
             setTimeout(() => { qm.hidden = true; res("restart") }, 1400);
             return;
           }
@@ -960,12 +962,15 @@ function step(dt) {
     if (G.y > rowH + 60) {
       const over = loseLife("¡Cuidado! Evita caer.");
       if (over) G.cp = L.spawn;
-      G.x = G.cp; const p = platAt(G.cp); G.y = p ? p[2] : L.plats[0][2]; G.vy = 0; G.on = null;
+      G.x = G.cp; const p = platAt(G.cp); G.y = p ? p[2] : L.plats[0][2]; G.vy = 0; G.on = null; G.trail.length = 0;
     }
   }
   G.x = Math.max(14, Math.min(rowW - 14, G.x));
-  // gemas
-  for (const g of G.gems) if (!g.got && Math.abs(G.x - g.x) < 22 && Math.abs((G.y - 45) - g.y) < 50) { g.got = 1; gemsTotal++; updGems(); sfxGem(); for (let i = 0; i < 10; i++) G.burst.push({ x: g.x, y: g.y, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, life: .7, c: "120,255,220" }) }
+  // gemas: el punto de agarre depende de la pose real (de pie vs. volando inclinada), si no el
+  // hitbox queda desalineado de lo que se ve en pantalla y las gemas "no se sienten" agarrables.
+  let gcx = G.x, gcy = G.y - 45, grx = 22, gry = 50;
+  if (G.fly) { const Hb = CH * K * FLY_K; gcx = G.x + G.face * Math.sin(.35) * .5 * Hb; gcy = G.y - Math.cos(.35) * .5 * Hb; grx = 34; gry = 42 }
+  for (const g of G.gems) if (!g.got && Math.abs(gcx - g.x) < grx && Math.abs(gcy - g.y) < gry) { g.got = 1; gemsTotal++; updGems(); sfxGem(); for (let i = 0; i < 10; i++) G.burst.push({ x: g.x, y: g.y, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, life: .7, c: "120,255,220" }) }
   if (L.star && !G.star && Math.abs(G.x - L.star.x) < 34) { G.star = true; toast("⭐ ¡Estrella conseguida!"); gemsTotal += 3; updGems(); boom(L.star.x, 40, "255,210,80"); freeze(70); sfxStar() }
   if (!G.busy && L.box && !G.answered && Math.abs(G.x - L.box.x) < 26 && !G.fly) { G.busy = true; G.onBox && G.onBox() }
   if (L.goal && G.x >= L.goal) openPortal();
@@ -1187,11 +1192,11 @@ function draw() {
   if (L.portal) drawPortal(ctx, L.portal.x, L.portal.y, L.portal.s || 1, t, G.portalOpen);
   if (G.trail.length) for (const tr of G.trail) { tr.a *= G.fly ? 0.9 : 0.8; ctx.fillStyle = `rgba(63,214,255,${tr.a * 0.5})`; ctx.fillRect(tr.x - 10, tr.y, 20, 3) }
   // personaje
-  let f = 8, bob = 0, lean = 0;
+  let f = 8, bob = 0, lean = 0, strideFlip = false;
   if (G.fly) f = 5;
   else if (!G.ground) f = G.jt < 0.08 ? 3 : G.vy < -150 ? 4 : G.vy < 150 ? 5 : 6;
   else if (keys.down && !G.busy) f = 7;
-  else if (Math.abs(G.vx) > 1) { f = Math.floor(t * 11) % 3; lean = .06 * G.face; bob = Math.abs(Math.sin(t * 11)) * -2.6 } // rebote sincronizado con el paso
+  else if (Math.abs(G.vx) > 1) { f = 0; lean = .06 * G.face; bob = Math.abs(Math.sin(t * 11)) * -2.6; strideFlip = Math.floor(t * 5.5) % 2 === 1 } // los 3 frames de correr son la misma pose: mientras no haya frames nuevos, se espeja solo la mitad de abajo para simular el cambio de pierna
   else bob = Math.sin(t * 1.7) * 2.4; // respiración cuando está de pie quieto
   if (G.absorb) f = 5;
   if (!G.absorb) { // sombra bajo los pies
@@ -1208,7 +1213,15 @@ function draw() {
   if (G.fly) sc *= FLY_K;
   if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
   ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(.35 - G.flyTilt); else if (lean) ctx.rotate(lean);
-  ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH); ctx.restore(); ctx.globalAlpha = 1;
+  if (strideFlip) {
+    // truco temporal: espeja solo las piernas (mitad de abajo) para simular el cambio de pierna
+    // mientras no haya frames de carrera nuevos — ver nota en el cálculo de "f" más arriba.
+    ctx.save(); ctx.beginPath(); ctx.rect(-CW / 2, -CH, CW, CH * .56); ctx.clip();
+    ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(-CW / 2, -CH * .44, CW, CH * .44); ctx.clip(); ctx.scale(-1, 1);
+    ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH); ctx.restore();
+  } else ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH);
+  ctx.restore(); ctx.globalAlpha = 1;
   // chispas
   ctx.globalCompositeOperation = "lighter";
   for (const b of G.burst) { const f = 1 - b.t / b.life; ctx.fillStyle = `rgba(${b.c},${b.big ? f * .35 : f})`; if (b.big) { ctx.beginPath(); ctx.arc(b.x, b.y, 2 + (1 - f) * 5, 0, TAU); ctx.fill() } else ctx.fillRect(b.x - 1.5, b.y - 1.5, 3, 3) }
