@@ -890,8 +890,12 @@ function drawSlabs(ctx, x0, x1, y, t) {
   ctx.restore();
 }
 const rigs = {}; function rigFor(sh) { if (!sh.complete || !sh.naturalWidth) return null; return rigs[sh.src] || (rigs[sh.src] = makeRig(sh)) }
-const AVATARS = { nina: { src: "assets/nina.png", name: "Niña" }, nino: { src: "assets/nino.png", name: "Niño" } };
+const AVATARS = { nina: { src: "assets/nina.png", name: "Niña", run: "assets/nina_run.png" }, nino: { src: "assets/nino.png", name: "Niño" } };
 new Image().src = AVATARS.nino.src;
+// Hojas de carrera dibujadas (2 cuadros de 260x420: contacto y paso). Si un avatar aún no tiene,
+// corre con el rig por piezas.
+const runSheets = {}; for (const a of Object.values(AVATARS)) if (a.run) { const i = new Image(); i.src = a.run; runSheets[a.src] = i }
+function runSheetFor(sh) { const i = Object.entries(runSheets).find(([k]) => sh.src.endsWith(k)); return i && i[1].complete && i[1].naturalWidth ? i[1] : null }
 function applyAvatar(k) { const a = AVATARS[k] || AVATARS.nina; if (!sheet.src.endsWith(a.src)) sheet.src = a.src; $("#app").style.setProperty("--avatar", `url(${a.src})`) }
 const CW = 260, CH = 420, K = 0.22, FLY_K = .72; // FLY_K: tamaño del avatar al volar
 const keys = { left: 0, right: 0, up: 0, down: 0 };
@@ -1283,11 +1287,11 @@ function draw() {
   if (L.portal) drawPortal(ctx, L.portal.x, L.portal.y, L.portal.s || 1, t, G.portalOpen);
   if (G.trail.length) for (const tr of G.trail) { tr.a *= G.fly ? 0.9 : 0.8; ctx.fillStyle = `rgba(63,214,255,${tr.a * 0.5})`; ctx.fillRect(tr.x - 10, tr.y, 20, 3) }
   // personaje
-  let f = 8, bob = 0, lean = 0, run = null;
+  let f = 8, bob = 0, lean = 0, run = null, runImg = null;
   if (G.fly) f = 5;
   else if (!G.ground) f = G.jt < 0.08 ? 3 : G.vy < -150 ? 4 : G.vy < 150 ? 5 : 6;
   else if (keys.down && !G.busy) f = 7;
-  else if (Math.abs(G.vx) > 1) { f = 0; lean = .06 * G.face; run = rigFor(sheet) }
+  else if (Math.abs(G.vx) > 1) { f = 0; lean = .06 * G.face; runImg = runSheetFor(sheet); if (!runImg) run = rigFor(sheet) }
   else bob = Math.sin(t * 1.7) * 2.4; // respiración cuando está de pie quieto
   if (G.absorb) f = 5;
   if (!G.absorb) { // sombra bajo los pies
@@ -1304,7 +1308,10 @@ function draw() {
   if (G.fly) sc *= FLY_K;
   if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
   ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(.35 - G.flyTilt); else if (lean) ctx.rotate(lean);
-  if (run) drawRun(ctx, run, G.x * G.face / 103); // fase ligada a la distancia: el pie no patina
+  if (runImg) { // contacto, paso, contacto, paso: un cuadro cada ~26 px recorridos; pies sobre el piso
+    const st = Math.floor(((G.x * G.face / 26) % 4 + 4) % 4) % 2;
+    ctx.drawImage(runImg, st * CW, 0, CW, CH, -CW / 2, -CH + (st ? 1 : 4), CW, CH);
+  } else if (run) drawRun(ctx, run, G.x * G.face / 103); // fase ligada a la distancia: el pie no patina
   else ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH);
   ctx.restore(); ctx.globalAlpha = 1;
   // chispas
