@@ -818,9 +818,10 @@ function startLevel(area, idx) {
   G = { area, idx, L, im, x: L.spawn, y: L.fly ? L.spawnY : L.plats[0][2], vx: 0, vy: 0, ground: !L.fly, face: 1, fly: !!L.fly,
         t: 0, answered: false, busy: true, exitOn: false, star: false, cp: L.spawn, trail: [], done: null, inv: 0, on: null,
         portalOpen: L.portal && L.portal.open ? 1 : 0, absorb: 0, boxGone: 0, burst: [], gems: (L.gems || []).map(g => ({ x: g[0], y: g[1], got: 0 })),
-        cups: null, cupPick: false, fx: null, parts: [], lives: MAX_LIVES };
+        cups: null, cupPick: false, fx: null, parts: [], lives: MAX_LIVES, camLock: null, emerge: 1, warpFlash: 0 };
   setTheme(area === "alg" ? "alg" : null);
   const p0 = platAt(G.x); if (!L.fly && p0) G.y = p0[2];
+  boom(G.x, G.y - 30, "200,230,255"); // chispazo de llegada: el personaje se "materializa" al entrar al nivel
   const dots = $("#g-dots"); dots.innerHTML = [0, 1, 2].map(i => `<i class="${i < idx || idx === 4 ? "on" : ""}"></i>`).join("");
   $("#g-lvl").textContent = AREA[area].name + (idx === 0 ? " · Bienvenida" : idx === 4 ? " · Meta" : ` · Nivel ${idx}`);
   $('[data-k="down"]').setAttribute("aria-label", G.fly ? "Bajar" : "Agacharse");
@@ -862,7 +863,13 @@ function step(dt) {
   G.parts = G.parts.filter(p => p.t < p.life);
   for (const b of G.burst) { b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 60 * dt }
   G.burst = G.burst.filter(b => b.t < b.life);
-  if (G.absorb) { G.absorb = Math.min(1, G.absorb + dt / .8); if (G.absorb >= 1 && G.done) { const d = G.done; G.done = null; d() } return }
+  if (G.absorb) {
+    const wasBelow = G.absorb < 1; G.absorb = Math.min(1, G.absorb + dt / .8);
+    if (wasBelow && G.absorb >= 1) { G.warpFlash = 1.3; if (G.done) { const d = G.done; G.done = null; d() } }
+    return;
+  }
+  if (G.warpFlash > 0) G.warpFlash -= dt * 2.2;
+  if (G.emerge > 0) G.emerge = Math.max(0, G.emerge - dt / .7);
   const busy = G.busy || !dlg.hidden || !qm.hidden;
   const dir = busy ? 0 : (keys.right - keys.left);
   if (dir) G.face = dir;
@@ -957,6 +964,23 @@ function drawQBox(c, x, yb, t, s = 1) {
   const b = spr("alg3_box"); if (!b.complete) return; const w = 44 * s, h = w * b.height / b.width;
   c.drawImage(b, x - w / 2, yb - h + 2, w, h);
 }
+/* Globo de diálogo con "?" flotando sobre una caja, para que se note que hay que tocarla. */
+function drawPrompt(c, x, yTop, t) {
+  const rx = 17, ry = 13, bob = Math.sin(t * 2.6) * 4, cy = yTop - 14 - bob, glow = .55 + .45 * Math.sin(t * 3);
+  c.save();
+  c.shadowColor = `rgba(255,207,74,${glow})`; c.shadowBlur = 8 + 5 * glow;
+  c.fillStyle = "rgba(10,16,48,.92)"; c.strokeStyle = "#ffcf4a"; c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(x - rx + 6, cy - ry); c.lineTo(x + rx - 6, cy - ry); c.quadraticCurveTo(x + rx, cy - ry, x + rx, cy - ry + 6);
+  c.lineTo(x + rx, cy + ry - 6); c.quadraticCurveTo(x + rx, cy + ry, x + rx - 6, cy + ry);
+  c.lineTo(x + 4, cy + ry); c.lineTo(x, cy + ry + 9); c.lineTo(x - 2, cy + ry);
+  c.lineTo(x - rx + 6, cy + ry); c.quadraticCurveTo(x - rx, cy + ry, x - rx, cy + ry - 6);
+  c.lineTo(x - rx, cy - ry + 6); c.quadraticCurveTo(x - rx, cy - ry, x - rx + 6, cy - ry);
+  c.closePath(); c.fill(); c.stroke();
+  c.shadowBlur = 0; c.fillStyle = "#ffcf4a"; c.font = "bold 15px 'Chakra Petch',sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText("?", x, cy - 1);
+  c.restore();
+}
 /* Gema con corte de diamante: mitad clara arriba, oscura abajo, halo pulsante y destello. */
 function drawGem(c, x, y, sx, t) {
   const h = 9, pulse = .5 + .5 * Math.sin(t * 3 + x);
@@ -1006,7 +1030,11 @@ function draw() {
   let zs = Math.min(Hc * .7 / rowH, Wc / 300); zs = Math.max(zs, Wc / rowW);
   const s = zs * d, vw = w / s, rowPx = rowH * s;
   const oy = h > rowPx ? (h - rowPx) * .55 : (h - rowPx) / 2;
-  const lead = .42, tcam = Math.max(0, Math.min(rowW - vw, G.x - vw * lead));
+  const lead = .42;
+  // Durante el juego de los vasos el personaje no camina, así que la cámara encuadra
+  // el centro de los 3 vasos (en vez de seguir al personaje) para que siempre se vean completos.
+  const camTarget = G.camLock === "cups" && G.cups ? (Math.min(...G.cups.map(c => c.x)) + Math.max(...G.cups.map(c => c.x))) / 2 - vw / 2 : G.x - vw * lead;
+  const tcam = Math.max(0, Math.min(rowW - vw, camTarget));
   G.cam = G.cam == null || Math.abs(G.cam - tcam) > vw ? tcam : G.cam + (tcam - G.cam) * .12;
   const cam = G.cam + (G.shake > 0 ? rnd(-3, 3) * G.shake * 3 : 0);
   G.view = { s, cam, oy };
@@ -1051,7 +1079,7 @@ function draw() {
   if (L.box && L.box.spr && G.boxGone < 1) {
     const key = L.box.spr.split("_"), r = OBJ[key[0]][key[1]], im2 = spr(L.box.spr), bob = Math.sin(t * 2.6) * 3.5;
     if (im2.complete) { ctx.save(); ctx.globalAlpha = 1 - G.boxGone; const sc = 1 + G.boxGone * .6, cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2 + bob; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.drawImage(im2, -r[2] / 2, -r[3] / 2, r[2], r[3]); ctx.restore() }
-    if (!G.answered) { ctx.save(); ctx.fillStyle = "#ffcf4a"; ctx.font = "bold 16px 'Chakra Petch',sans-serif"; ctx.textAlign = "center"; ctx.fillText("▼", L.box.x, r[1] - 4 - pulse * 5); ctx.restore() }
+    if (!G.answered) drawPrompt(ctx, L.box.x, r[1], t);
   }
   if (L.star && !G.star) { const key = L.star.spr.split("_"), r = OBJ[key[0]][key[1]], im2 = spr(L.star.spr); if (im2.complete) ctx.drawImage(im2, r[0], r[1] + Math.sin(t * 2.2 + 1) * 3.5, r[2], r[3]) }
   // vasos
@@ -1073,12 +1101,14 @@ function draw() {
     if (gy !== null) { const hgt = Math.max(0, gy - G.y), k = Math.max(.35, 1 - hgt / 160); ctx.save(); ctx.globalAlpha = .45 * k; const sg = ctx.createRadialGradient(G.x, gy, 0, G.x, gy, 26 * k); sg.addColorStop(0, "rgba(0,0,20,.9)"); sg.addColorStop(1, "rgba(0,0,20,0)"); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(G.x, gy, 26 * k, 6 * k, 0, 0, TAU); ctx.fill(); ctx.restore() }
   }
   if (G.inv > 0 && Math.floor(t * 16) % 2) ctx.globalAlpha = 0.35;
+  if (G.emerge > 0) ctx.globalAlpha *= 1 - G.emerge * 0.85; // se desvanece al materializarse al llegar
   ctx.save();
   let px = G.x, py = G.y + bob, sc = K;
   if (G.absorb) { const a = G.absorb, P = L.portal; px += (P.x - px) * a; py += (P.y - 30 * (P.s || 1) - py) * a; sc = K * (1 - a * .95) }
-  ctx.translate(px, py); if (G.absorb) ctx.rotate(G.absorb * 7);
+  ctx.translate(px, py); if (G.absorb) ctx.rotate(G.absorb * 7); else if (G.emerge > 0) ctx.rotate(G.emerge * -5);
   const sq = (G.squash || 0) * .12; // positivo = aplasta al aterrizar, negativo = estira al despegar
   if (G.fly) sc *= FLY_K;
+  if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
   ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(0.35); else if (lean) ctx.rotate(lean);
   ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH); ctx.restore(); ctx.globalAlpha = 1;
   // chispas
@@ -1089,6 +1119,7 @@ function draw() {
   // destello de golpe (rayos de luz y viñeta van en CSS: #fxov)
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (G.flash > 0) { ctx.fillStyle = `rgba(255,60,90,${G.flash * .25})`; ctx.fillRect(0, 0, w, h) }
+  if (G.warpFlash > 0) { ctx.fillStyle = `rgba(200,230,255,${Math.min(1, G.warpFlash) * .4})`; ctx.fillRect(0, 0, w, h) }
 }
 
 function loop(ts) {
@@ -1102,6 +1133,7 @@ requestAnimationFrame(loop);
 let cupResolve = null;
 async function cupGame() {
   const cups = G.cups;
+  G.camLock = "cups"; // la cámara deja de seguir al personaje y encuadra los 3 vasos completos
   await say(["La pregunta está escondida debajo de uno de los vasos.", "¡Síguelo con la mirada! Los vasos se van a mover."]);
   for (;;) {
     G.cupHas = Math.floor(Math.random() * 3);
@@ -1119,7 +1151,7 @@ async function cupGame() {
     G.cupPick = false;
     const ch = cups[pick];
     await tween(400, p => ch.lift = p * 46);
-    if (pick === G.cupHas) { boom(ch.x, ch.y - 20, "200,150,255"); await wait(500); return }
+    if (pick === G.cupHas) { boom(ch.x, ch.y - 20, "200,150,255"); await wait(500); G.camLock = null; return }
     toast("¡Vacío! Estaba en otro vaso."); const ok = cups[G.cupHas]; await tween(400, p => ok.lift = p * 46); await wait(900);
     await Promise.all([tween(350, p => ch.lift = 46 * (1 - p)), tween(350, p => ok.lift = 46 * (1 - p))]);
     await say(["Casi. Vamos otra vez, fíjate bien."]);
