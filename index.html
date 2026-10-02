@@ -569,6 +569,42 @@ const framed = (() => { try { return window.self !== window.top } catch (e) { re
   });
 })();
 
+/* ---------- Audio sintetizado (sin archivos: osciladores de Web Audio) ---------- */
+let actx = null;
+function audioCtx() {
+  if (actx === null) { try { actx = new (window.AudioContext || window.webkitAudioContext)() } catch (e) { actx = false } }
+  if (actx && actx.state === "suspended") actx.resume();
+  return actx;
+}
+function tone(freq, dur, type, vol, delay) {
+  const a = audioCtx(); if (!a) return;
+  const t0 = a.currentTime + (delay || 0);
+  const osc = a.createOscillator(), g = a.createGain();
+  osc.type = type || "sine"; osc.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol || .18, t0 + .012); g.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+  osc.connect(g); g.connect(a.destination); osc.start(t0); osc.stop(t0 + dur + .03);
+}
+function sweep(f0, f1, dur, vol) {
+  const a = audioCtx(); if (!a) return;
+  const t0 = a.currentTime, osc = a.createOscillator(), g = a.createGain();
+  osc.type = "sine"; osc.frequency.setValueAtTime(f0, t0); osc.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+  g.gain.setValueAtTime(vol || .15, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+  osc.connect(g); g.connect(a.destination); osc.start(t0); osc.stop(t0 + dur + .03);
+}
+const sfxJump = () => { tone(520, .1, "square", .1); tone(780, .07, "square", .07, .035) };
+const sfxLand = () => tone(130, .09, "sine", .14);
+const sfxGem = () => { tone(900, .07, "sine", .09); tone(1300, .09, "sine", .08, .04) };
+const sfxOk = () => { tone(523, .1, "triangle", .14); tone(659, .1, "triangle", .14, .09); tone(784, .18, "triangle", .14, .18) };
+const sfxWrong = () => tone(190, .2, "sawtooth", .1);
+const sfxLife = () => { tone(300, .14, "sawtooth", .1); tone(220, .18, "sawtooth", .09, .1) };
+const sfxWarp = () => sweep(280, 1200, .4, .13);
+const sfxStar = () => { sfxOk(); tone(988, .2, "triangle", .1, .28) };
+const sfxHit = () => tone(220, .08, "square", .1);
+const sfxWin = () => { tone(523, .12, "triangle", .14); tone(659, .12, "triangle", .14, .11); tone(784, .12, "triangle", .14, .22); tone(1046, .3, "triangle", .15, .33) };
+// Click genérico para botones/tarjetas, sutil, para que la interfaz se sienta con respuesta.
+document.addEventListener("click", e => { if (e.target.closest(".btn,.tile,.av,.gcard,.pad-btn")) tone(700, .04, "square", .05) }, true);
+
+
 /* ---------- Robot guía (SVG) ---------- */
 const BOT_SVG = `<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
 <defs><radialGradient id="bg1" cx="50%" cy="40%"><stop offset="0" stop-color="#1f3a9e"/><stop offset="1" stop-color="#0b1440"/></radialGradient></defs>
@@ -655,7 +691,7 @@ function ask(q) {
       const i = +b.dataset.i;
       if (i === q.ok) {
         b.classList.add("right"); qm.querySelectorAll(".opt").forEach(x => x.disabled = true);
-        fb.className = "feedback ok"; fb.textContent = q.right.join(" ");
+        fb.className = "feedback ok"; fb.textContent = q.right.join(" "); freeze(80); sfxOk();
         const go = qm.querySelector("#q-go"); go.hidden = false; go.focus();
         go.onclick = () => { qm.hidden = true; res(true) };
       } else {
@@ -670,7 +706,7 @@ function ask(q) {
             return;
           }
           qLives.textContent = "❤️".repeat(G.lives) + "🖤".repeat(MAX_LIVES - G.lives);
-        }
+        } else sfxWrong();
         fb.className = "feedback no"; fb.textContent = q.wrong.join(" ");
       }
     });
@@ -794,7 +830,7 @@ cv.addEventListener("pointerdown", e => {
 
 function toast(t) { const el = $("#toast"); el.textContent = t; el.style.opacity = 1; clearTimeout(toast.t); toast.t = setTimeout(() => el.style.opacity = 0, 1700) }
 let RS = 1; // escala de render: limita los píxeles que se dibujan por cuadro
-function resize() { const r = cv.getBoundingClientRect(); RS = Math.max(.6, Math.min(devicePixelRatio || 1, 1.5, Math.sqrt(1.3e6 / Math.max(1, r.width * r.height)))); cv.width = Math.max(1, Math.round(r.width * RS)); cv.height = Math.max(1, Math.round(r.height * RS)); if (G) G.rowC = null }
+function resize() { const r = cv.getBoundingClientRect(); RS = Math.max(.6, Math.min(devicePixelRatio || 1, 2.5, Math.sqrt(2.6e6 / Math.max(1, r.width * r.height)))); cv.width = Math.max(1, Math.round(r.width * RS)); cv.height = Math.max(1, Math.round(r.height * RS)); if (G) G.rowC = null }
 addEventListener("resize", resize);
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -836,7 +872,7 @@ function updLives() { if (!G) return; $("#g-lives").textContent = "❤️".repea
 // Resta una vida; si llega a 0 las recarga y avisa que hay que reiniciar el nivel actual.
 function loseLife(msg) {
   if (!G || G.absorb) return false;
-  G.lives--; updLives(); toast(msg); G.shake = Math.max(G.shake || 0, .3); G.flash = Math.max(G.flash || 0, .55);
+  G.lives--; updLives(); toast(msg); G.shake = Math.max(G.shake || 0, .3); G.flash = Math.max(G.flash || 0, .55); freeze(70); sfxLife();
   if (G.lives <= 0) { G.lives = MAX_LIVES; updLives(); return true }
   return false;
 }
@@ -865,7 +901,7 @@ function step(dt) {
   G.burst = G.burst.filter(b => b.t < b.life);
   if (G.absorb) {
     const wasBelow = G.absorb < 1; G.absorb = Math.min(1, G.absorb + dt / .8);
-    if (wasBelow && G.absorb >= 1) { G.warpFlash = 1.3; if (G.done) { const d = G.done; G.done = null; d() } }
+    if (wasBelow && G.absorb >= 1) { G.warpFlash = 1.3; sfxWarp(); if (G.done) { const d = G.done; G.done = null; d() } }
     return;
   }
   if (G.warpFlash > 0) G.warpFlash -= dt * 2.2;
@@ -897,14 +933,14 @@ function step(dt) {
     const wasFast = Math.abs(G.vx) > 220;
     G.vx = dir * 300 * (keys.down && G.ground ? 0.35 : 1);
     if (wasFast && dir === 0 && G.ground) G.squash = Math.max(G.squash || 0, .5); // frenada brusca
-    if (!busy && keys.up && (G.ground || G.coyote > 0)) { G.vy = -610; G.ground = false; G.coyote = 0; G.jt = 0; G.on = null; G.squash = -.8 }
+    if (!busy && keys.up && (G.ground || G.coyote > 0)) { G.vy = -610; G.ground = false; G.coyote = 0; G.jt = 0; G.on = null; G.squash = -.8; sfxJump() }
     if (!keys.up && G.vy < -250) G.vy = -250;
     const prevY = G.y, fallV = G.vy; G.vy += 1500 * dt; G.x += G.vx * dt; G.y += G.vy * dt; G.jt = (G.jt || 0) + dt;
     G.coyote = Math.max(0, (G.coyote || 0) - dt);
     let landed = null;
     if (G.vy >= 0) for (const p of plats()) { if (G.x >= p[0] - 8 && G.x <= p[1] + 8 && prevY <= p[2] + 3 && G.y >= p[2]) { G.y = p[2]; G.vy = 0; landed = p; break } }
     if (G.ground && !landed) G.coyote = 0.1;
-    if (landed && !G.ground && G.jt > .15) { dust(G.x, G.y, Math.min(22, 6 + fallV / 60)); G.squash = Math.min(1.6, .5 + fallV / 500) }
+    if (landed && !G.ground && G.jt > .15) { dust(G.x, G.y, Math.min(22, 6 + fallV / 60)); G.squash = Math.min(1.6, .5 + fallV / 500); if (fallV > 150) sfxLand() }
     if (landed && Math.abs(G.vx) > 50 && Math.random() < dt * 9) dust(G.x - 10 * G.face, G.y, 1);
     G.ground = !!landed; G.on = landed && landed[3] ? landed[3] : null;
     if (G.ground && Math.abs(G.vx) > 140) { G.trail.push({ x: G.x - 16 * G.face, y: G.y - 10, a: 1 }); if (G.trail.length > 8) G.trail.shift() }
@@ -918,8 +954,8 @@ function step(dt) {
   }
   G.x = Math.max(14, Math.min(rowW - 14, G.x));
   // gemas
-  for (const g of G.gems) if (!g.got && Math.abs(G.x - g.x) < 22 && Math.abs((G.y - 45) - g.y) < 50) { g.got = 1; gemsTotal++; updGems(); for (let i = 0; i < 10; i++) G.burst.push({ x: g.x, y: g.y, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, life: .7, c: "120,255,220" }) }
-  if (L.star && !G.star && Math.abs(G.x - L.star.x) < 34) { G.star = true; toast("⭐ ¡Estrella conseguida!"); gemsTotal += 3; updGems(); boom(L.star.x, 40, "255,210,80") }
+  for (const g of G.gems) if (!g.got && Math.abs(G.x - g.x) < 22 && Math.abs((G.y - 45) - g.y) < 50) { g.got = 1; gemsTotal++; updGems(); sfxGem(); for (let i = 0; i < 10; i++) G.burst.push({ x: g.x, y: g.y, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, life: .7, c: "120,255,220" }) }
+  if (L.star && !G.star && Math.abs(G.x - L.star.x) < 34) { G.star = true; toast("⭐ ¡Estrella conseguida!"); gemsTotal += 3; updGems(); boom(L.star.x, 40, "255,210,80"); freeze(70); sfxStar() }
   if (!G.busy && L.box && !G.answered && Math.abs(G.x - L.box.x) < 26 && !G.fly) { G.busy = true; G.onBox && G.onBox() }
   if (L.goal && G.x >= L.goal) openPortal();
   const P = L.portal;
@@ -1022,6 +1058,12 @@ function buildBg(im) {
   x.fillStyle = g; x.fillRect(0, top - 10, W, 22);
   c.top = top; return c;
 }
+// Polvo/bruma en primerísimo plano, por delante de todo (incluso el personaje): se mueve
+// un poco más rápido que la cámara, como desenfoque de profundidad de campo de cine.
+function makeBokeh(L, W, H) {
+  const n = []; for (let i = 0; i < 10; i++) n.push({ x: rnd(0, W), y: rnd(H * .3, H * .95), r: rnd(10, 30), a: rnd(.04, .1), s: rnd(.5, 1) });
+  return n;
+}
 function draw() {
   const w = cv.width, h = cv.height, im = G.im; if (!im.complete || !im.naturalWidth) return;
   const L = G.L, rowW = im.naturalWidth / RES, rowH = im.naturalHeight / RES, t = G.t;
@@ -1039,15 +1081,23 @@ function draw() {
   const cam = G.cam + (G.shake > 0 ? rnd(-3, 3) * G.shake * 3 : 0);
   G.view = { s, cam, oy };
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#060a22"; ctx.fillRect(0, 0, w, h);
-  ctx.setTransform(s, 0, 0, s, -cam * s, oy);
-  ctx.save();
+  // Parallax: el fondo difuminado de arriba/abajo (ya borroso y oscurecido) se mueve un poco
+  // más despacio que la cámara, y las estrellas a un ritmo intermedio — eso da sensación de
+  // profundidad sin desalinear el escenario nítido, que sigue a la cámara al 100%.
+  const camBg = cam * .93, camMid = cam * .68;
+  ctx.setTransform(s, 0, 0, s, -camBg * s, oy);
   ctx.drawImage(G.bgc, 0, -G.bgc.top);
-  if (!G.rowC || G.rowC.s !== s) { const rc = document.createElement("canvas"); const k = Math.min(s, 8000 / rowW); rc.width = Math.round(rowW * k); rc.height = Math.round(rowH * k); const rx = rc.getContext("2d"); rx.imageSmoothingQuality = "high"; rx.drawImage(im, 0, 0, rc.width, rc.height); rc.s = s; G.rowC = rc }
-  ctx.drawImage(G.rowC, 0, 0, rowW, rowH);
+  ctx.setTransform(s, 0, 0, s, -camMid * s, oy);
   const pulse = 0.5 + 0.5 * Math.sin(t * 4);
-  // ambiente
   ctx.globalCompositeOperation = "lighter";
   if (G.fx) for (const st of G.fx.stars) { if (L.fx === "lava" && st.y > 0) continue; const a = .2 + .8 * Math.max(0, Math.sin(t * st.s * 1.7 + st.p)); ctx.fillStyle = `rgba(210,235,255,${a * .8})`; ctx.fillRect(st.x - .6, st.y - .6, 1.2 * st.s, 1.2 * st.s); if (a > .92) { ctx.fillRect(st.x - 3, st.y, 6, .6); ctx.fillRect(st.x, st.y - 3, .6, 6) } }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.setTransform(s, 0, 0, s, -cam * s, oy);
+  ctx.save();
+  if (!G.rowC || G.rowC.s !== s) { const rc = document.createElement("canvas"); const k = Math.min(s, 8000 / rowW); rc.width = Math.round(rowW * k); rc.height = Math.round(rowH * k); const rx = rc.getContext("2d"); rx.imageSmoothingQuality = "high"; rx.drawImage(im, 0, 0, rc.width, rc.height); rc.s = s; G.rowC = rc }
+  ctx.drawImage(G.rowC, 0, 0, rowW, rowH);
+  // ambiente
+  ctx.globalCompositeOperation = "lighter";
   if (L.fx === "lava") {
     const lg = ctx.createLinearGradient(0, rowH - 60, 0, rowH); lg.addColorStop(0, "rgba(255,80,0,0)"); lg.addColorStop(1, `rgba(255,110,20,${.18 + .12 * Math.sin(t * 2.2)})`);
     ctx.fillStyle = lg; ctx.fillRect(0, rowH - 60, rowW, 60);
@@ -1116,14 +1166,25 @@ function draw() {
   for (const b of G.burst) { const f = 1 - b.t / b.life; ctx.fillStyle = `rgba(${b.c},${b.big ? f * .35 : f})`; if (b.big) { ctx.beginPath(); ctx.arc(b.x, b.y, 2 + (1 - f) * 5, 0, TAU); ctx.fill() } else ctx.fillRect(b.x - 1.5, b.y - 1.5, 3, 3) }
   ctx.globalCompositeOperation = "source-over";
   ctx.restore();
+  // Polvo en primerísimo plano: se mueve más rápido que la cámara (como algo muy cerca del
+  // "lente"), el truco clásico de profundidad de campo — por delante del personaje.
+  if (!G.bokeh) G.bokeh = makeBokeh(L, rowW, rowH);
+  const camNear = cam * 1.18;
+  ctx.setTransform(s, 0, 0, s, -camNear * s, oy);
+  for (const bk of G.bokeh) { const yy = bk.y + Math.sin(t * .4 * bk.s + bk.x) * 8; ctx.fillStyle = `rgba(210,235,255,${bk.a})`; ctx.beginPath(); ctx.arc(bk.x, yy, bk.r, 0, TAU); ctx.fill() }
   // destello de golpe (rayos de luz y viñeta van en CSS: #fxov)
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (G.flash > 0) { ctx.fillStyle = `rgba(255,60,90,${G.flash * .25})`; ctx.fillRect(0, 0, w, h) }
   if (G.warpFlash > 0) { ctx.fillStyle = `rgba(200,230,255,${Math.min(1, G.warpFlash) * .4})`; ctx.fillRect(0, 0, w, h) }
 }
 
+let hitStop = 0;
+// Congela la simulación unos milisegundos en momentos de impacto (acierto, golpe, derrota del robot);
+// es un truco barato de "game juice" que hace que esos golpes se sientan con más peso.
+function freeze(ms) { hitStop = Math.max(hitStop, ms); }
 function loop(ts) {
   const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
+  if (hitStop > 0) { hitStop -= dt * 1000; if (running && G) draw(); requestAnimationFrame(loop); return }
   if (running && G) { const n = Math.max(1, Math.ceil(dt / (1 / 60))); for (let i = 0; i < n; i++) step(dt / n); draw() }
   requestAnimationFrame(loop);
 }
@@ -1151,8 +1212,8 @@ async function cupGame() {
     G.cupPick = false;
     const ch = cups[pick];
     await tween(400, p => ch.lift = p * 46);
-    if (pick === G.cupHas) { boom(ch.x, ch.y - 20, "200,150,255"); await wait(500); G.camLock = null; return }
-    toast("¡Vacío! Estaba en otro vaso."); const ok = cups[G.cupHas]; await tween(400, p => ok.lift = p * 46); await wait(900);
+    if (pick === G.cupHas) { boom(ch.x, ch.y - 20, "200,150,255"); freeze(90); sfxOk(); await wait(500); G.camLock = null; return }
+    toast("¡Vacío! Estaba en otro vaso."); sfxWrong(); const ok = cups[G.cupHas]; await tween(400, p => ok.lift = p * 46); await wait(900);
     await Promise.all([tween(350, p => ch.lift = 46 * (1 - p)), tween(350, p => ok.lift = 46 * (1 - p))]);
     await say(["Casi. Vamos otra vez, fíjate bien."]);
   }
@@ -1394,12 +1455,12 @@ async function attack(res) {
   for (const [st, f] of res) {
     const el = document.querySelector(`#figs [data-f="${f}"]`);
     if (st === "OK" && el && !el.classList.contains("lit")) {
-      el.classList.add("lit"); hp = Math.max(0, hp - 1); updHP();
+      el.classList.add("lit"); hp = Math.max(0, hp - 1); updHP(); sfxHit();
       boss.classList.remove("hit"); void boss.offsetWidth; boss.classList.add("hit"); await wait(420);
     }
   }
   if (hp > 0) { await say(["¡JA, JA! Todavía me queda energía.", "Revisa las figuras en rojo de la terminal y vuelve a compilar."], "guardian"); return }
-  setStep(4); boss.classList.add("dead"); await wait(500);
+  setStep(4); boss.classList.add("dead"); sfxWin(); await wait(500);
   await finalChallenge();
 }
 function showFallback() {
@@ -1431,7 +1492,7 @@ let confettiOn = false;
 function openCert() {
   setTheme(null);
   transition(() => { show("s-cert"); $("#cert-intro").hidden = false; $("#cert-view").hidden = true; fillCert() })
-    .then(() => { confetti(); say(["¡Felicidades!", "Completaste todos los retos de XYLA.", "Ahora puedes ver tu certificado."]) });
+    .then(() => { confetti(); sfxWin(); say(["¡Felicidades!", "Completaste todos los retos de XYLA.", "Ahora puedes ver tu certificado."]) });
 }
 function fillCert() {
   const u = me(); $("#c-name").textContent = u ? u.name : "Jugador";
