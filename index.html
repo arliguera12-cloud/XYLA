@@ -905,7 +905,7 @@ function step(dt) {
     return;
   }
   if (G.warpFlash > 0) G.warpFlash -= dt * 2.2;
-  if (G.emerge > 0) G.emerge = Math.max(0, G.emerge - dt / .7);
+  if (G.emerge > 0) G.emerge = Math.max(0, G.emerge - dt / .5);
   const busy = G.busy || !dlg.hidden || !qm.hidden;
   const dir = busy ? 0 : (keys.right - keys.left);
   if (dir) G.face = dir;
@@ -1064,6 +1064,33 @@ function makeBokeh(L, W, H) {
   const n = []; for (let i = 0; i < 10; i++) n.push({ x: rnd(0, W), y: rnd(H * .3, H * .95), r: rnd(10, 30), a: rnd(.04, .1), s: rnd(.5, 1) });
   return n;
 }
+/* ---------- Postprocesado: une el personaje y el escenario en una sola imagen ----------
+   Sin esto, un sprite PNG sobre un fondo pintado se ve "pegado" porque no comparte la luz
+   ni la atmósfera de la escena. Una viñeta + gradación de color + un bloom sutil (todo en
+   pantalla completa, después de dibujar el mundo) es la forma estándar de unificarlo. */
+const GRADE = { lava: "255,120,60", water: "60,170,255", cave: "150,100,255", space: "90,120,255" };
+function postFX(c, w, h, L) {
+  c.save();
+  // viñeta: oscurece las esquinas y centra la atención en la acción
+  const vr = Math.max(w, h);
+  const vg = c.createRadialGradient(w / 2, h * .46, vr * .25, w / 2, h * .46, vr * .72);
+  vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.4)");
+  c.fillStyle = vg; c.fillRect(0, 0, w, h);
+  // gradación de color: un tinte muy sutil del tono del bioma sobre toda la imagen
+  c.globalCompositeOperation = "overlay"; c.globalAlpha = .16;
+  c.fillStyle = `rgb(${GRADE[L.fx] || GRADE.space})`; c.fillRect(0, 0, w, h);
+  c.restore();
+  // bloom barato: una copia borrosa y reducida de lo ya dibujado, sumada con luz aditiva
+  if (!G.bloomCv) G.bloomCv = document.createElement("canvas");
+  const bw = Math.max(1, Math.round(w / 5)), bh = Math.max(1, Math.round(h / 5));
+  if (G.bloomCv.width !== bw) { G.bloomCv.width = bw; G.bloomCv.height = bh }
+  const bx = G.bloomCv.getContext("2d");
+  bx.clearRect(0, 0, bw, bh); if ("filter" in bx) bx.filter = "blur(1.5px)";
+  bx.drawImage(cv, 0, 0, bw, bh);
+  c.save(); c.globalCompositeOperation = "lighter"; c.globalAlpha = .3;
+  c.drawImage(G.bloomCv, 0, 0, w, h);
+  c.restore();
+}
 function draw() {
   const w = cv.width, h = cv.height, im = G.im; if (!im.complete || !im.naturalWidth) return;
   const L = G.L, rowW = im.naturalWidth / RES, rowH = im.naturalHeight / RES, t = G.t;
@@ -1155,7 +1182,7 @@ function draw() {
   ctx.save();
   let px = G.x, py = G.y + bob, sc = K;
   if (G.absorb) { const a = G.absorb, P = L.portal; px += (P.x - px) * a; py += (P.y - 30 * (P.s || 1) - py) * a; sc = K * (1 - a * .95) }
-  ctx.translate(px, py); if (G.absorb) ctx.rotate(G.absorb * 7); else if (G.emerge > 0) ctx.rotate(G.emerge * -5);
+  ctx.translate(px, py); if (G.absorb) ctx.rotate(G.absorb * 7); else if (G.emerge > 0) ctx.rotate(G.emerge * G.emerge * -.6);
   const sq = (G.squash || 0) * .12; // positivo = aplasta al aterrizar, negativo = estira al despegar
   if (G.fly) sc *= FLY_K;
   if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
@@ -1172,8 +1199,9 @@ function draw() {
   const camNear = cam * 1.18;
   ctx.setTransform(s, 0, 0, s, -camNear * s, oy);
   for (const bk of G.bokeh) { const yy = bk.y + Math.sin(t * .4 * bk.s + bk.x) * 8; ctx.fillStyle = `rgba(210,235,255,${bk.a})`; ctx.beginPath(); ctx.arc(bk.x, yy, bk.r, 0, TAU); ctx.fill() }
-  // destello de golpe (rayos de luz y viñeta van en CSS: #fxov)
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  postFX(ctx, w, h, L);
+  // destello de golpe (rayos de luz y viñeta van en CSS: #fxov)
   if (G.flash > 0) { ctx.fillStyle = `rgba(255,60,90,${G.flash * .25})`; ctx.fillRect(0, 0, w, h) }
   if (G.warpFlash > 0) { ctx.fillStyle = `rgba(200,230,255,${Math.min(1, G.warpFlash) * .4})`; ctx.fillRect(0, 0, w, h) }
 }
