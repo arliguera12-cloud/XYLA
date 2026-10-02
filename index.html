@@ -798,6 +798,89 @@ const RES = 3; // los escenarios y objetos están guardados a 3× de resolución
 function img(n, dir) { const key = (dir || "") + n; if (!imgs[key]) { const i = new Image(); i.src = `hd/${dir || ""}${n}.${dir ? "png" : "jpg"}`; imgs[key] = i } return imgs[key] }
 const spr = n => img(n, "obj/");
 const sheet = new Image(); sheet.src = "assets/nina.png";
+// ===== Rig de carrera =====
+// El sprite trae 3 frames de correr idénticos, así que la carrera se anima por piezas:
+// torso y brazos recortados del frame 0 (los brazos giran en el hombro), piernas dibujadas
+// con cinemática inversa sobre una trayectoria del tobillo, y el tenis recortado del sprite.
+function makeRig(sheet) {
+  const CWr = 260, CHr = 420;
+  const cut = (poly, inv, x0 = 0, y0 = 0, w = CWr, h = CHr) => {
+    const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d");
+    g.drawImage(sheet, x0, y0, w, h, 0, 0, w, h);
+    g.globalCompositeOperation = inv ? "destination-out" : "destination-in";
+    g.beginPath(); for (const p of poly) { g.moveTo(p[0][0] - x0, p[0][1] - y0); for (const q of p) g.lineTo(q[0] - x0, q[1] - y0); g.closePath() }
+    g.fill(); return c;
+  };
+  const FA = [[178, 201], [195, 198], [210, 186], [245, 182], [245, 256], [200, 256], [182, 236]];
+  const BA = [[40, 197], [111, 194], [111, 232], [100, 262], [40, 262]];
+  const LEGS = [[0, 262], [260, 262], [260, 420], [0, 420]];
+  const torso = cut([FA, BA, LEGS], true);
+  const armF = cut([[[163, 204], [195, 198], [210, 186], [245, 182], [245, 256], [200, 256], [163, 242]]], false);
+  const armB = cut([[[40, 197], [128, 194], [128, 240], [100, 262], [40, 262]]], false);
+  const shoe = cut([[[186, 386], [200, 379], [214, 371], [255, 368], [255, 420], [186, 420]]], false);
+  const shoeD = document.createElement("canvas"); shoeD.width = CWr; shoeD.height = CHr;
+  { const g = shoeD.getContext("2d"); g.drawImage(shoe, 0, 0); g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(14,22,44,.3)"; g.fillRect(0, 0, CWr, CHr) }
+  return { torso, armF, armB, shoe, shoeD };
+}
+// trayectoria del tobillo respecto a la cadera (px del frame), ciclo 0..1
+const RUN_KEYS = [[0, 58, 124], [.14, 22, 127], [.30, -24, 126], [.42, -60, 112], [.55, -66, 78], [.70, -22, 60], [.82, 30, 70], [.92, 58, 100]];
+function runFoot(t) {
+  t = ((t % 1) + 1) % 1; const KK = RUN_KEYS, n = KK.length;
+  let i = n - 1; for (let j = 0; j < n; j++) if (KK[j][0] <= t) i = j;
+  const a = KK[i], b = KK[(i + 1) % n], ta = a[0], tb = b[0] + (i + 1 >= n ? 1 : 0);
+  const u = (t - ta) / (tb - ta), p0 = KK[(i - 1 + n) % n], p3 = KK[(i + 2) % n];
+  const cr = (A, B, C, D) => .5 * (2 * B + (-A + C) * u + (2 * A - 5 * B + 4 * C - D) * u * u + (-A + 3 * B - 3 * C + D) * u * u * u);
+  return [cr(p0[1], a[1], b[1], p3[1]), cr(p0[2], a[2], b[2], p3[2])];
+}
+function drawRun(ctx, rig, ph) {
+  // origen: pies en (0,0); frame px (fx,fy) -> (fx-130, fy-420)
+  const HX = 132 - 130, HY0 = 258 - 420, L1 = 72, L2 = 68;
+  const bob = -5 * Math.cos(ph * Math.PI * 4 - .9) - 1;
+  const HY = HY0 + bob;
+  const leg = (t, near) => {
+    const [fx, fy] = runFoot(t); const ax = HX + fx, ay = HY0 + fy; // el pie va referido al suelo: el rebote de la cadera no lo despega
+    let dx = ax - HX, dy = ay - HY, d = Math.hypot(dx, dy); const m = L1 + L2 - .5; if (d > m) { dx *= m / d; dy *= m / d; d = m }
+    const a = Math.atan2(dy, dx), k = Math.acos(Math.min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d)));
+    const kx = HX + Math.cos(a - k) * L1, ky = HY + Math.sin(a - k) * L1; const ex = HX + dx, ey = HY + dy;
+    const sa = Math.atan2(ey - ky, ex - kx) - Math.PI / 2; // inclinación de la espinilla
+    // zapato: plano en apoyo, punta abajo al despegar, punta arriba al alcanzar
+    const tt = ((t % 1) + 1) % 1; let rot = tt < .3 ? 0 : tt < .62 ? (tt - .3) / .32 * .95 : tt < .9 ? .95 - (tt - .62) / .28 * 1.2 : -.25 + (tt - .9) / .1 * .25;
+    const col = near ? "#1e2c42" : "#151f31", ol = "#0a0f1a";
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.strokeStyle = ol; ctx.lineWidth = 31; ctx.beginPath(); ctx.moveTo(HX, HY - 6); ctx.lineTo(kx, ky); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.strokeStyle = col; ctx.lineWidth = 25; ctx.beginPath(); ctx.moveTo(HX, HY - 6); ctx.lineTo(kx, ky); ctx.lineTo(ex, ey); ctx.stroke();
+    // brillo del pliegue
+    ctx.strokeStyle = near ? "rgba(90,120,170,.35)" : "rgba(70,95,140,.22)"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(HX + 6, HY + 4); ctx.lineTo(kx + 5, ky - 2); ctx.stroke();
+    ctx.save(); ctx.translate(ex, ey); ctx.rotate(rot); ctx.drawImage(near ? rig.shoe : rig.shoeD, -199 + 130 - 130, -384); ctx.restore();
+  };
+  const s = Math.sin(ph * Math.PI * 2);
+  // brazo trasero
+  ctx.save(); ctx.translate(122 - 130, 206 - 420 + bob); ctx.rotate(.4 * s); ctx.drawImage(rig.armB, -122, -206); ctx.restore();
+  leg(ph + .5, false);
+  leg(ph, true);
+  ctx.drawImage(rig.torso, -130, -420 + bob);
+  ctx.save(); ctx.translate(170 - 130, 200 - 420 + bob); ctx.rotate(.4 * s); ctx.drawImage(rig.armF, -170, -200); ctx.restore();
+}
+// Losas de hielo/piedra flotantes (cara superior clara, frente azul, contorno marino como el arte).
+function drawSlabs(ctx, x0, x1, y, t) {
+  const n = Math.max(1, Math.round((x1 - x0) / 46)), w = (x1 - x0) / n;
+  ctx.save(); ctx.lineJoin = "round";
+  for (let i = 0; i < n; i++) {
+    const a = x0 + i * w + 2, b = a + w - 4, dy = Math.sin(t * 1.6 + i * 1.3) * 1.2, top = y + dy, ins = 3;
+    const gl = ctx.createRadialGradient((a + b) / 2, top + 22, 0, (a + b) / 2, top + 22, w * .7); gl.addColorStop(0, "rgba(90,200,255,.22)"); gl.addColorStop(1, "rgba(90,200,255,0)");
+    ctx.fillStyle = gl; ctx.fillRect(a - 10, top + 8, b - a + 20, 30);
+    const fr = ctx.createLinearGradient(0, top + 5, 0, top + 18); fr.addColorStop(0, "#5f86cf"); fr.addColorStop(1, "#283a78");
+    ctx.beginPath(); ctx.moveTo(a, top + 5); ctx.lineTo(b, top + 5); ctx.lineTo(b - ins, top + 17); ctx.lineTo(a + ins + 2, top + 19); ctx.closePath();
+    ctx.fillStyle = fr; ctx.fill(); ctx.strokeStyle = "#0d1530"; ctx.lineWidth = 1.6; ctx.stroke();
+    const tp = ctx.createLinearGradient(0, top - 1, 0, top + 5); tp.addColorStop(0, "#f2f7ff"); tp.addColorStop(1, "#b8cbe9");
+    ctx.beginPath(); ctx.moveTo(a + 2, top - 1); ctx.lineTo(b - 2, top - 1); ctx.lineTo(b, top + 5); ctx.lineTo(a, top + 5); ctx.closePath();
+    ctx.fillStyle = tp; ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "rgba(140,220,255,.55)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a + w * (.3 + (i * 37 % 5) * .08), top + 7); ctx.lineTo(a + w * (.38 + (i * 37 % 5) * .08), top + 15); ctx.stroke();
+  }
+  ctx.restore();
+}
+const rigs = {}; function rigFor(sh) { if (!sh.complete || !sh.naturalWidth) return null; return rigs[sh.src] || (rigs[sh.src] = makeRig(sh)) }
 const AVATARS = { nina: { src: "assets/nina.png", name: "Niña" }, nino: { src: "assets/nino.png", name: "Niño" } };
 new Image().src = AVATARS.nino.src;
 function applyAvatar(k) { const a = AVATARS[k] || AVATARS.nina; if (!sheet.src.endsWith(a.src)) sheet.src = a.src; $("#app").style.setProperty("--avatar", `url(${a.src})`) }
@@ -956,8 +1039,7 @@ function step(dt) {
     if (landed && !G.ground && G.jt > .15) { dust(G.x, G.y, Math.min(22, 6 + fallV / 60)); G.squash = Math.min(1.6, .5 + fallV / 500); if (fallV > 150) sfxLand() }
     if (landed && Math.abs(G.vx) > 50 && Math.random() < dt * 9) dust(G.x - 10 * G.face, G.y, 1);
     G.ground = !!landed; G.on = landed && landed[3] ? landed[3] : null;
-    if (G.ground && Math.abs(G.vx) > 140) { G.trail.push({ x: G.x - 16 * G.face, y: G.y - 10, a: 1 }); if (G.trail.length > 8) G.trail.shift() }
-    else if (G.trail.length) G.trail.length = 0;
+    if (G.trail.length) G.trail.length = 0;
     if (landed && !landed[3] && landed !== L.exit) G.cp = Math.min(Math.max(G.x, landed[0] + 20), landed[1] - 20);
     if (G.y > rowH + 60) {
       const over = loseLife("¡Cuidado! Evita caer.");
@@ -1162,7 +1244,7 @@ function draw() {
   ctx.globalCompositeOperation = "source-over";
   // puentes de luz
   const br = (L.bridges || []).concat(G.exitOn && L.exit ? [L.exit] : []);
-  for (const [x0, x1, y] of br) { ctx.save(); ctx.fillStyle = `rgba(120,230,255,${0.55 + 0.25 * pulse})`; ctx.fillRect(x0, y, x1 - x0, 5); ctx.fillStyle = "rgba(63,214,255,.18)"; ctx.fillRect(x0, y + 5, x1 - x0, 7); ctx.restore() }
+  for (const [x0, x1, y] of br) drawSlabs(ctx, x0, x1, y, t); // puente: losas de hielo flotantes, mismo estilo que las plataformas del arte
   // plataformas móviles
   if (L.movers) for (const m of L.movers) { const im2 = spr(m.spr), r = OBJ[m.spr.split("_")[0]][m.spr.split("_")[1]], [dx, dy] = moverOff(m, t); if (im2.complete) ctx.drawImage(im2, r[0] + dx, r[1] + dy, r[2], r[3]); ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(80,220,255,${.18 + .12 * pulse})`; ctx.beginPath(); ctx.ellipse((m.walk[0] + m.walk[1]) / 2 + dx, r[1] + r[3] + dy - 6, (m.walk[1] - m.walk[0]) * .3, 5, 0, 0, TAU); ctx.fill(); ctx.restore() }
   // obstáculos en movimiento
@@ -1192,11 +1274,11 @@ function draw() {
   if (L.portal) drawPortal(ctx, L.portal.x, L.portal.y, L.portal.s || 1, t, G.portalOpen);
   if (G.trail.length) for (const tr of G.trail) { tr.a *= G.fly ? 0.9 : 0.8; ctx.fillStyle = `rgba(63,214,255,${tr.a * 0.5})`; ctx.fillRect(tr.x - 10, tr.y, 20, 3) }
   // personaje
-  let f = 8, bob = 0, lean = 0, strideFlip = false;
+  let f = 8, bob = 0, lean = 0, run = null;
   if (G.fly) f = 5;
   else if (!G.ground) f = G.jt < 0.08 ? 3 : G.vy < -150 ? 4 : G.vy < 150 ? 5 : 6;
   else if (keys.down && !G.busy) f = 7;
-  else if (Math.abs(G.vx) > 1) { f = 0; lean = .06 * G.face; bob = Math.abs(Math.sin(t * 11)) * -2.6; strideFlip = Math.floor(t * 5.5) % 2 === 1 } // los 3 frames de correr son la misma pose: mientras no haya frames nuevos, se espeja solo la mitad de abajo para simular el cambio de pierna
+  else if (Math.abs(G.vx) > 1) { f = 0; lean = .06 * G.face; run = rigFor(sheet) }
   else bob = Math.sin(t * 1.7) * 2.4; // respiración cuando está de pie quieto
   if (G.absorb) f = 5;
   if (!G.absorb) { // sombra bajo los pies
@@ -1213,14 +1295,8 @@ function draw() {
   if (G.fly) sc *= FLY_K;
   if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
   ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(.35 - G.flyTilt); else if (lean) ctx.rotate(lean);
-  if (strideFlip) {
-    // truco temporal: espeja solo las piernas (mitad de abajo) para simular el cambio de pierna
-    // mientras no haya frames de carrera nuevos — ver nota en el cálculo de "f" más arriba.
-    ctx.save(); ctx.beginPath(); ctx.rect(-CW / 2, -CH, CW, CH * .56); ctx.clip();
-    ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH); ctx.restore();
-    ctx.save(); ctx.beginPath(); ctx.rect(-CW / 2, -CH * .44, CW, CH * .44); ctx.clip(); ctx.scale(-1, 1);
-    ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH); ctx.restore();
-  } else ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH);
+  if (run) drawRun(ctx, run, G.x * G.face / 94); // fase ligada a la distancia: el pie no patina
+  else ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH);
   ctx.restore(); ctx.globalAlpha = 1;
   // chispas
   ctx.globalCompositeOperation = "lighter";
