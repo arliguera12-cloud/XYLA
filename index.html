@@ -890,7 +890,7 @@ function drawSlabs(ctx, x0, x1, y, t) {
   ctx.restore();
 }
 const rigs = {}; function rigFor(sh) { if (!sh.complete || !sh.naturalWidth) return null; return rigs[sh.src] || (rigs[sh.src] = makeRig(sh)) }
-const AVATARS = { nina: { src: "assets/nina.png", name: "Niña", run: "assets/nina_run.png", runW: 291, runA: 168 }, nino: { src: "assets/nino.png", name: "Niño" } };
+const AVATARS = { nina: { src: "assets/nina.png", name: "Niña", run: "assets/nina_run.png", runW: 291, runA: 168 }, nino: { src: "assets/nino.png", name: "Niño", run: "assets/nino_run.png", runW: 287, runA: 173 } };
 new Image().src = AVATARS.nino.src;
 // Hojas de carrera dibujadas: 8 cuadros de runW x 420 (ciclo completo); runA = x de la chamarra en el cuadro. Si un avatar aún no tiene,
 // corre con el rig por piezas.
