@@ -1,4 +1,6 @@
 
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>XYLA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -552,6 +554,63 @@ alg:[
  {img:"alg4_bg",fx:"cave",plats:[[0,1580,137]],spawn:60,box:{x:560,hidden:1},cups:{slots:[662,770,878],y:112},portal:{x:1500,y:135},gems:[[300,95],[1150,95],[1320,95]]},
  {img:"alg5",fx:"cave",plats:[[0,1580,145]],spawn:60,goal:1230,portal:{x:1390,y:126,s:1.3},gems:[[400,90],[750,90],[1050,90]]}]
 };
+/* ---------- Niveles más largos y difíciles ----------
+   Cada nivel de plataformas repite una sección "ida - espejo - ida": el espejo hace que los cortes del
+   fondo sean continuos, sin costuras. Se duplican plataformas, gemas, plataformas móviles, asteroides
+   y cristales peligrosos; todo lo que está después de la sección se recorre. Las copias son más rápidas. */
+const LEVEL_EXT = {
+  arit: { 1: [285, 716], 2: [649, 1105], 3: [395, 845], 4: [560, 1000] },
+  alg:  { 1: [297, 825], 2: [712, 1280], 3: [165, 400], 4: [560, 1050] }
+};
+// Cristales peligrosos en el piso: [x0, x1] (opcional: amplitud de patrulla, periodo)
+const LEVEL_HZ = {
+  arit: { 4: [[640, 668], [790, 822, 34, 2.6], [920, 946]] },
+  alg:  { 3: [[225, 253], [305, 337, 28, 2.4]], 4: [[650, 678], [800, 832, 36, 2.6], [950, 978]] }
+};
+function extendLevel(L, xs, xe, hz) {
+  const d = xe - xs, W0 = L.img.indexOf("alg") === 0 ? 1580 : 1516, D2 = 2 * d, mir = x => 2 * xe - x, E = [];
+  L.ext = { xs, xe, d }; L.rowW = W0 + D2;
+  const part = x => x < xs ? 0 : x < xe ? 1 : 2;
+  const items = (arr, x, mk, mirk, cpk) => { const out = []; for (const it of arr || []) { const k = part(x(it)); if (k === 0) out.push(it); else if (k === 1) { out.push(it, mirk(it), cpk(it)) } else out.push(cpk(it)) } return out };
+  // plataformas: se parten en cabeza / sección / cola y luego se funden las que se tocan a la misma altura
+  const segs = [];
+  for (const [a, b, y] of L.plats) {
+    if (a < xs) segs.push([a, Math.min(b, xs), y, 0]);
+    const sa = Math.max(a, xs), sb = Math.min(b, xe); if (sa < sb) segs.push([sa, sb, y, 1]);
+    if (b > xe) segs.push([Math.max(a, xe), b, y, 2]);
+  }
+  const P = [];
+  for (const [a, b, y, k] of segs) { if (k === 0) P.push([a, b, y]); else if (k === 1) { P.push([a, b, y], [mir(b), mir(a), y], [a + D2, b + D2, y]) } else P.push([a + D2, b + D2, y]) }
+  P.sort((p, q) => p[0] - q[0]);
+  L.plats = P.reduce((o, p) => { const l = o[o.length - 1]; if (l && p[0] <= l[1] + .5 && Math.abs(p[2] - l[2]) <= 3) l[1] = Math.max(l[1], p[1]); else o.push(p.slice()); return o }, []);
+  if (L.movers) L.movers = items(L.movers, m => (m.walk[0] + m.walk[1]) / 2, 0,
+    m => ({ ...m, walk: [mir(m.walk[1]), mir(m.walk[0]), m.walk[2]], mir: true, mx: 2 * xe, T: m.T * .85 }),
+    m => ({ ...m, walk: [m.walk[0] + D2, m.walk[1] + D2, m.walk[2]], sx: (m.sx || 0) + D2, T: part((m.walk[0] + m.walk[1]) / 2) === 1 ? m.T * .85 : m.T }));
+  if (L.gems) L.gems = items(L.gems, g => g[0], 0, g => [mir(g[0]), g[1]], g => [g[0] + D2, g[1]]);
+  if (L.obst) L.obst = items(L.obst, o => o.c[0], 0,
+    o => ({ ...o, c: [mir(o.c[0]), o.c[1], o.c[2]], T: o.T * .85, ay: (o.ay || 0) + 4, at: !o.at }),
+    o => ({ ...o, c: [o.c[0] + D2, o.c[1], o.c[2]], T: part(o.c[0]) === 1 ? o.T * .85 : o.T, ay: part(o.c[0]) === 1 ? (o.ay || 0) + 4 : o.ay }));
+  for (const k of ["box", "star"]) if (L[k] && part(L[k].x) === 2) L[k] = { ...L[k], x: L[k].x + D2, sx: (L[k].sx || 0) + D2 };
+  if (L.portal) L.portal = { ...L.portal, x: L.portal.x + D2 };
+  if (L.exit) L.exit = [L.exit[0] + D2, L.exit[1] + D2, L.exit[2]];
+  if (L.goal) L.goal += D2; if (L.land) L.land += D2;
+  if (L.cups) L.cups = { ...L.cups, slots: L.cups.slots.map(x => x + D2) };
+  if (hz) L.hz = items(hz, h => (h[0] + h[1]) / 2, 0, h => [mir(h[1]), mir(h[0]), h[2], h[3]], h => [h[0] + D2, h[1] + D2, h[2], h[3]])
+    .map(h => { const cx = (h[0] + h[1]) / 2, p = L.plats.find(q => cx >= q[0] && cx <= q[1]); return p ? [h[0], h[1], p[2], h[2] || 0, h[3] || 2.4] : null }).filter(Boolean);
+}
+for (const area in LEVEL_EXT) for (const i in LEVEL_EXT[area]) extendLevel(LEVELS[area][i], LEVEL_EXT[area][i][0], LEVEL_EXT[area][i][1], (LEVEL_HZ[area] || {})[i]);
+/* Imagen del nivel extendido: ida + espejo + ida + resto, en un solo lienzo con el mismo formato que la imagen original */
+function levelImg(L) {
+  const base = img(L.img); if (!L.ext) return base; if (L._im) return L._im;
+  if (!base.complete || !base.naturalWidth) return base;
+  const { xs, xe, d } = L.ext, k = RES, H = base.naturalHeight, W0 = base.naturalWidth;
+  const c = document.createElement("canvas"); c.width = W0 + 2 * d * k; c.height = H; const x = c.getContext("2d");
+  x.drawImage(base, 0, 0, xe * k, H, 0, 0, xe * k, H);
+  x.save(); x.translate(2 * xe * k, 0); x.scale(-1, 1); x.drawImage(base, xs * k, 0, d * k, H, xs * k, 0, d * k, H); x.restore();
+  x.drawImage(base, xs * k, 0, d * k, H, (xe + d) * k, 0, d * k, H);
+  x.drawImage(base, xe * k, 0, W0 - xe * k, H, (xe + 2 * d) * k, 0, W0 - xe * k, H);
+  c.naturalWidth = c.width; c.naturalHeight = c.height; c.complete = true; L._im = c; return c;
+}
 const OBJ = {"arit3":{"p2":[327,100,118,50],"p3":[474,74,162,66],"p4":[662,63,119,61],"p5":[815,33,138,67],"box":[1286,14,80,72]},"alg4":{},"alg2":{"box":[960,18,82,70],"star":[1226,16,76,70]},"arit2":{"box":[992,18,76,68]},"arit4":{"o0":[217,45,80,80],"o1":[805,10,76,76],"o2":[685,62,76,71],"o3":[593,59,64,64],"o4":[896,61,68,68],"o5":[1068,16,54,54],"o6":[1147,40,76,76],"box":[1300,34,66,61]},"alg3":{"p2":[414,84,214,74],"p3":[737,82,201,76],"p4":[1025,66,188,92],"box":[1403,22,83,68]}};
 const VIDEO_ID = "1hnNrXLY1UwU5xw31cI8tAzA5a-xdzBZA";
 const $ = s => document.querySelector(s);
@@ -688,7 +747,7 @@ function ask(q) {
     if (q.calc) { qm.querySelector(".qgrid").style.gridTemplateColumns = ""; wireCalc(qm) } else qm.querySelector(".qgrid").style.gridTemplateColumns = "1fr";
     qm.hidden = false;
     const fb = qm.querySelector("#fb"), qLives = qm.querySelector("#q-lives");
-    if (qLives) qLives.textContent = "❤️".repeat(G.lives) + "🖤".repeat(MAX_LIVES - G.lives);
+    if (qLives) qLives.textContent = hearts(G.lives);
     qm.querySelectorAll(".opt").forEach(b => b.onclick = () => {
       const i = +b.dataset.i;
       if (i === q.ok) {
@@ -701,13 +760,12 @@ function ask(q) {
         if (G) {
           const over = loseLife("¡Respuesta incorrecta!");
           if (over) {
-            fb.className = "feedback no"; fb.textContent = "Se te acabaron las vidas. Vamos a reiniciar este nivel.";
+            fb.className = "feedback no"; fb.textContent = "Se te acabaron las vidas. Volvemos al inicio del recorrido.";
             qm.querySelectorAll(".opt").forEach(x => x.disabled = true);
-            const L = G.L; G.x = L.spawn; G.y = L.fly ? L.spawnY : L.plats[0][2]; G.cp = L.spawn; G.vx = 0; G.vy = 0; G.trail = [];
-            setTimeout(() => { qm.hidden = true; res("restart") }, 1400);
+            setTimeout(() => { qm.hidden = true; gameOver() }, 1500);
             return;
           }
-          qLives.textContent = "❤️".repeat(G.lives) + "🖤".repeat(MAX_LIVES - G.lives);
+          qLives.textContent = hearts(G.lives);
         } else sfxWrong();
         fb.className = "feedback no"; fb.textContent = q.wrong.join(" ");
       }
@@ -899,8 +957,9 @@ function runSheetFor(sh) { const i = Object.entries(runSheets).find(([k]) => sh.
 function applyAvatar(k) { const a = AVATARS[k] || AVATARS.nina; if (!sheet.src.endsWith(a.src)) sheet.src = a.src; $("#app").style.setProperty("--avatar", `url(${a.src})`) }
 // Proporciones tipo Mario: el personaje mide ~1/5 del alto de la pantalla (antes 1/3), así hay más mundo a la vista.
 // KR y FR escalan todo lo que estaba medido para el tamaño anterior (K .22, FLY_K .72): zancada, sombra, estela, llama.
-const CW = 260, CH = 420, K = 0.15, FLY_K = .9; // FLY_K: tamaño del avatar al volar
+const CW = 260, CH = 420, K = 0.13, FLY_K = .9; // FLY_K: tamaño del avatar al volar
 const KR = K / 0.22, FR = K * FLY_K / (0.22 * 0.72);
+const BOXS = .6, PS = .72, OBS = .8; // OBS: asteroides // caja ?, estrella y portales: más chicos para que pesen como el personaje (el cubo era más alto que él)
 const keys = { left: 0, right: 0, up: 0, down: 0 };
 let running = false, G = null, last = 0, gemsTotal = 0;
 const TAU = Math.PI * 2;
@@ -949,13 +1008,15 @@ function spawnPart(L, W, H) {
   return { x: rnd(0, W), y: rnd(-H * 1.5, H), vx: rnd(-10, -3), vy: rnd(-2, 2), life: rnd(2, 4), t: 0, c: Math.random() < .4 ? "200,160,255" : "150,220,255", r: rnd(.6, 1.6) };
 }
 
-const MAX_LIVES = 5;
+const MAX_LIVES = 5, MAX_SHOWN = 7, GEMS_PER_LIFE = 5; // 5 vidas al empezar; cada 5 gemas regalan 1 (hasta 7)
+let carryLives = MAX_LIVES, gameOverBusy = false; const areaGems0 = {};
+const hearts = n => n > MAX_LIVES ? `❤️×${n}` : "❤️".repeat(Math.max(0, n)) + "🖤".repeat(MAX_LIVES - Math.max(0, n)); // con vidas extra se compacta: ❤️×7
 function startLevel(area, idx) {
   const L = LEVELS[area][idx]; const im = img(L.img);
   G = { area, idx, L, im, x: L.spawn, y: L.fly ? L.spawnY : L.plats[0][2], vx: 0, vy: 0, ground: !L.fly, face: 1, fly: !!L.fly,
         t: 0, answered: false, busy: true, exitOn: false, star: false, cp: L.spawn, trail: [], done: null, inv: 0, on: null,
         portalOpen: L.portal && L.portal.open ? 1 : 0, absorb: 0, boxGone: 0, burst: [], gems: (L.gems || []).map(g => ({ x: g[0], y: g[1], got: 0 })),
-        cups: null, cupPick: false, fx: null, parts: [], lives: MAX_LIVES, camLock: null, emerge: 1, warpFlash: 0, flyTilt: 0, nearMiss: {} };
+        cups: null, cupPick: false, fx: null, parts: [], lives: carryLives, lifeMarks: Math.floor(gemsTotal / GEMS_PER_LIFE), camLock: null, emerge: 1, warpFlash: 0, flyTilt: 0, nearMiss: {} };
   setTheme(area === "alg" ? "alg" : null);
   const p0 = platAt(G.x); if (!L.fly && p0) G.y = p0[2];
   boom(G.x, G.y - 22, "200,230,255"); // chispazo de llegada: el personaje se "materializa" al entrar al nivel
@@ -969,17 +1030,28 @@ function startLevel(area, idx) {
   updGems(); updLives();
   return new Promise(res => { G.done = res });
 }
-function updLives() { if (!G) return; $("#g-lives").textContent = "❤️".repeat(Math.max(0, G.lives)) + "🖤".repeat(Math.max(0, MAX_LIVES - G.lives)); }
-// Resta una vida; si llega a 0 las recarga y avisa que hay que reiniciar el nivel actual.
+function updLives() { if (!G) return; $("#g-lives").textContent = hearts(G.lives); }
+// Resta una vida; con 0 vidas se acaba la partida: el juego vuelve al inicio del recorrido (gameOver).
 function loseLife(msg) {
-  if (!G || G.absorb) return false;
-  G.lives--; updLives(); toast(msg); G.shake = Math.max(G.shake || 0, .3); G.flash = Math.max(G.flash || 0, .55); freeze(70); sfxLife();
-  if (G.lives <= 0) { G.lives = MAX_LIVES; updLives(); return true }
-  return false;
+  if (!G || G.absorb || gameOverBusy) return false;
+  G.lives--; carryLives = G.lives; updLives(); toast(msg); G.shake = Math.max(G.shake || 0, .3); G.flash = Math.max(G.flash || 0, .55); freeze(70); sfxLife();
+  return G.lives <= 0;
+}
+// Cada GEMS_PER_LIFE gemas regalan una vida (máx. MAX_SHOWN); también se llama al ganar gemas extra.
+function gemBonus() {
+  const marks = Math.floor(gemsTotal / GEMS_PER_LIFE);
+  while (G && marks > G.lifeMarks) { G.lifeMarks++; if (G.lives < MAX_SHOWN) { G.lives++; carryLives = G.lives; updLives(); toast(`💎 ¡${GEMS_PER_LIFE} gemas! +1 vida`); sfxStar() } else toast("💎 ¡Vidas al máximo!") }
+}
+async function gameOver() {
+  if (gameOverBusy || !G) return; gameOverBusy = true;
+  const area = G.area; G.busy = true; G.vx = 0; qm.hidden = true;
+  await say(["¡Game Over! Se acabaron las vidas.", "Volvemos al inicio del recorrido, con " + MAX_LIVES + " vidas nuevas. ¡Tú puedes!"]);
+  gemsTotal = areaGems0[area] != null ? areaGems0[area] : gemsTotal; gameOverBusy = false;
+  playArea(area); // la partida anterior se abandona: todas sus esperas dependían del G viejo
 }
 function updGems() { $("#g-gems-n").textContent = gemsTotal }
 
-function moverOff(m, t) { const a = TAU * t / m.T + (m.ph || 0); return [(m.ax || 0) * Math.sin(a), (m.ay || 0) * Math.sin(a)] }
+function moverOff(m, t) { const a = TAU * t / m.T + (m.ph || 0); return [(m.ax || 0) * Math.sin(a) * (m.mir ? -1 : 1), (m.ay || 0) * Math.sin(a)] }
 function plats() {
   const L = G.L; let p = L.plats.slice(); if (L.bridges) p = p.concat(L.bridges); if (G.exitOn && L.exit) p.push(L.exit);
   if (L.movers) for (const m of L.movers) { const [dx, dy] = moverOff(m, G.t); const w = m.walk; p.push([w[0] + dx, w[1] + dx, w[2] + dy, m]) }
@@ -990,7 +1062,7 @@ function obstPos(o, t) { const a = TAU * t / o.T; return [o.c[0] + (o.ax || 0) *
 function openPortal() { if (G.portalOpen > 0) return; G.portalOpen = 0.01; tween(900, p => { if (G) G.portalOpen = Math.max(.01, p) }); toast("¡Se abrió el portal!") }
 
 function step(dt) {
-  const L = G.L, rowW = (G.im.naturalWidth || 4548) / RES, rowH = (G.im.naturalHeight || 450) / RES;
+  const L = G.L, rowW = L.rowW || (G.im.naturalWidth || 4548) / RES, rowH = (G.im.naturalHeight || 450) / RES;
   const prevT = G.t; G.t += dt; if (G.inv > 0) G.inv -= dt;
   // efectos
   if (!G.fx) G.fx = makeFx(L, rowW, rowH);
@@ -1028,15 +1100,15 @@ function step(dt) {
       const pts = [.18, .5, .82].map(u => [G.x + G.face * Math.sin(lean) * u * Hb, G.y - Math.cos(lean) * u * Hb]);
       const rb = Hb * .14;
       let hitOne = false;
-      hit: for (const o of L.obst) { const [ox, oy] = obstPos(o, G.t); for (const [px, py] of pts) if (Math.hypot(px - ox, py - oy) < o.c[2] * .82 + rb) {
+      hit: for (const o of L.obst) { const [ox, oy] = obstPos(o, G.t); for (const [px, py] of pts) if (Math.hypot(px - ox, py - oy) < o.c[2] * OBS * .82 + rb) {
         hitOne = true;
         const over = loseLife("¡Esquiva los asteroides!");
         G.inv = over ? 2 : 1.2; G.kb = -330 * G.face;
-        if (over) { G.x = L.spawn; G.y = L.spawnY; G.kb = 0; G.trail = [] }
+        if (over) { G.kb = 0; G.trail = []; gameOver(); return }
         for (let i = 0; i < 16; i++) G.burst.push({ x: px, y: py, vx: rnd(-110, 110), vy: rnd(-110, 50), t: 0, life: .6, c: "255,120,140" });
         break hit } }
       // "casi me rozó": premia esquivar por poco, una sola vez por obstáculo (truco clásico de juegos de esquivar)
-      if (!hitOne) for (const o of L.obst) { if (G.nearMiss[o.spr + o.c[0]]) continue; const [ox, oy] = obstPos(o, G.t); const d = Math.hypot(G.x - ox, G.y - oy); if (d < o.c[2] * 1.7 && Math.abs(G.x - ox) < 40) { G.nearMiss[o.spr + o.c[0]] = 1; toast("¡Por poco!"); tone(880, .06, "sine", .08); for (let i = 0; i < 6; i++) G.parts.push({ x: (G.x + ox) / 2, y: (G.y + oy) / 2, vx: rnd(-40, 40), vy: rnd(-40, 40), t: 0, life: .3, c: "255,255,255", r: 1.4, glow: 1 }) } }
+      if (!hitOne) for (const o of L.obst) { if (G.nearMiss[o.spr + o.c[0]]) continue; const [ox, oy] = obstPos(o, G.t); const d = Math.hypot(G.x - ox, G.y - oy); if (d < o.c[2] * OBS * 1.7 && Math.abs(G.x - ox) < 40) { G.nearMiss[o.spr + o.c[0]] = 1; toast("¡Por poco!"); tone(880, .06, "sine", .08); for (let i = 0; i < 6; i++) G.parts.push({ x: (G.x + ox) / 2, y: (G.y + oy) / 2, vx: rnd(-40, 40), vy: rnd(-40, 40), t: 0, life: .3, c: "255,255,255", r: 1.4, glow: 1 }) } }
     }
     if (G.x >= L.land) { G.fly = false; G.y = L.plats[0][2]; G.vy = 0; G.kb = 0; G.ground = true; G.trail = []; G.flyTilt = 0; dust(G.x, G.y, 16); toast("¡Aterrizaje!") }
   } else {
@@ -1047,7 +1119,7 @@ function step(dt) {
     if (wasFast && dir === 0 && G.ground) G.squash = Math.max(G.squash || 0, .5); // frenada brusca
     if (!busy && keys.up && (G.ground || G.coyote > 0)) { G.vy = -610; G.ground = false; G.coyote = 0; G.jt = 0; G.on = null; G.squash = -.8; sfxJump() }
     if (!keys.up && G.vy < -250) G.vy = -250;
-    const prevY = G.y, fallV = G.vy; G.vy += 1500 * dt; G.x += G.vx * dt; G.y += G.vy * dt; G.jt = (G.jt || 0) + dt;
+    const prevY = G.y, fallV = G.vy; G.vy += 1500 * dt; G.x += (G.vx + (G.kbx || 0)) * dt; G.kbx = (G.kbx || 0) * Math.pow(.02, dt); G.y += G.vy * dt; G.jt = (G.jt || 0) + dt;
     G.coyote = Math.max(0, (G.coyote || 0) - dt);
     let landed = null;
     if (G.vy >= 0) for (const p of plats()) { if (G.x >= p[0] - 8 && G.x <= p[1] + 8 && prevY <= p[2] + 3 && G.y >= p[2]) { G.y = p[2]; G.vy = 0; landed = p; break } }
@@ -1056,24 +1128,35 @@ function step(dt) {
     if (landed && Math.abs(G.vx) > 50 && Math.random() < dt * 9) dust(G.x - 10 * G.face, G.y, 1);
     G.ground = !!landed; G.on = landed && landed[3] ? landed[3] : null;
     if (G.trail.length) G.trail.length = 0;
+    // cristales peligrosos: tocarlos con los pies cuesta una vida (se esquivan saltando)
+    if (G.inv <= 0 && L.hz) for (const h of L.hz) {
+      const off = hzX(h, G.t);
+      if (G.x > h[0] + off - 5 && G.x < h[1] + off + 5 && G.y > h[2] - 11 && G.y < h[2] + 14) {
+        const over = loseLife("¡Ouch! Esquiva los cristales rojos."); G.inv = 1.2; G.vy = -330; G.ground = false; G.kbx = -(G.face || 1) * 230;
+        for (let i = 0; i < 14; i++) G.burst.push({ x: G.x, y: G.y - 6, vx: rnd(-110, 110), vy: rnd(-130, 20), t: 0, life: .6, c: "255,90,130" });
+        if (over) { gameOver(); return }
+        break;
+      }
+    }
     if (landed && !landed[3] && landed !== L.exit) G.cp = Math.min(Math.max(G.x, landed[0] + 20), landed[1] - 20);
     if (G.y > rowH + 60) {
       const over = loseLife("¡Cuidado! Evita caer.");
       if (over) G.cp = L.spawn;
       G.x = G.cp; const p = platAt(G.cp); G.y = p ? p[2] : L.plats[0][2]; G.vy = 0; G.on = null; G.trail.length = 0;
+      if (over) { gameOver(); return }
     }
   }
   G.x = Math.max(14, Math.min(rowW - 14, G.x));
   // gemas: el punto de agarre depende de la pose real (de pie vs. volando inclinada), si no el
   // hitbox queda desalineado de lo que se ve en pantalla y las gemas "no se sienten" agarrables.
-  let gcx = G.x, gcy = G.y - 28, grx = 26, gry = 40;
+  let gcx = G.x, gcy = G.y - 24, grx = 26, gry = 38;
   if (G.fly) { const Hb = CH * K * FLY_K; gcx = G.x + G.face * Math.sin(.35) * .5 * Hb; gcy = G.y - Math.cos(.35) * .5 * Hb; grx = 34; gry = 42 }
-  for (const g of G.gems) if (!g.got && Math.abs(gcx - g.x) < grx && Math.abs(gcy - g.y) < gry) { g.got = 1; gemsTotal++; updGems(); sfxGem(); for (let i = 0; i < 10; i++) G.burst.push({ x: g.x, y: g.y, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, life: .7, c: "120,255,220" }) }
-  if (L.star && !G.star && Math.abs(G.x - L.star.x) < 34) { G.star = true; toast("⭐ ¡Estrella conseguida!"); gemsTotal += 3; updGems(); boom(L.star.x, 40, "255,210,80"); freeze(70); sfxStar() }
+  for (const g of G.gems) if (!g.got && Math.abs(gcx - g.x) < grx && Math.abs(gcy - g.y) < gry) { g.got = 1; gemsTotal++; updGems(); gemBonus(); sfxGem(); for (let i = 0; i < 10; i++) G.burst.push({ x: g.x, y: g.y, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, life: .7, c: "120,255,220" }) }
+  if (L.star && !G.star && Math.abs(G.x - L.star.x) < 34) { G.star = true; toast("⭐ ¡Estrella conseguida!"); gemsTotal += 3; updGems(); gemBonus(); boom(L.star.x, 40, "255,210,80"); freeze(70); sfxStar() }
   if (!G.busy && L.box && !G.answered && Math.abs(G.x - L.box.x) < 26 && !G.fly) { G.busy = true; G.onBox && G.onBox() }
   if (L.goal && G.x >= L.goal) openPortal();
   const P = L.portal;
-  if (!G.busy && P && G.portalOpen >= 1 && Math.abs(G.x - P.x) < 20 * (P.s || 1)) { G.busy = true; G.absorb = 0.001; G.face = 1 }
+  if (!G.busy && P && G.portalOpen >= 1 && Math.abs(G.x - P.x) < 20 * PS * (P.s || 1) + 4) { G.busy = true; G.absorb = 0.001; G.face = 1 }
 }
 function dust(x, y, n) { for (let i = 0; i < n; i++) G.burst.push({ x: x + rnd(-10, 10), y: y - rnd(0, 3), vx: rnd(-50, 50), vy: rnd(-40, -8), t: 0, life: rnd(.35, .7), c: "210,235,255", big: 1 }) }
 function boom(x, y, c) { for (let i = 0; i < 24; i++) G.burst.push({ x, y, vx: rnd(-140, 140), vy: rnd(-160, 30), t: 0, life: rnd(.5, 1), c }) }
@@ -1115,6 +1198,20 @@ function drawQBox(c, x, yb, t, s = 1) {
   c.drawImage(b, x - w / 2, yb - h + 2, w, h);
 }
 /* Globo de diálogo con "?" flotando sobre una caja, para que se note que hay que tocarla. */
+function hzX(h, t) { return h[3] ? h[3] * Math.sin(TAU * t / h[4]) : 0 } // h = [x0, x1, y, amplitud, periodo]
+function drawHazards(c, L, t) {
+  for (const h of L.hz || []) {
+    const off = hzX(h, t), x0 = h[0] + off, x1 = h[1] + off, y = h[2], n = Math.max(2, Math.round((x1 - x0) / 9)), w = (x1 - x0) / n, pulse = .5 + .5 * Math.sin(t * 4 + h[0]);
+    c.save(); c.globalCompositeOperation = "lighter";
+    const g = c.createRadialGradient((x0 + x1) / 2, y - 6, 0, (x0 + x1) / 2, y - 6, (x1 - x0) * .85 + 8); g.addColorStop(0, `rgba(255,70,110,${.26 + .16 * pulse})`); g.addColorStop(1, "rgba(255,70,110,0)");
+    c.fillStyle = g; c.fillRect(x0 - 24, y - 42, x1 - x0 + 48, 48); c.globalCompositeOperation = "source-over";
+    for (let i = 0; i < n; i++) {
+      const bx = x0 + i * w, th = 13 + (i % 2) * 5, gr = c.createLinearGradient(0, y - th, 0, y); gr.addColorStop(0, "#ffb3c6"); gr.addColorStop(.5, "#ff3f6e"); gr.addColorStop(1, "#7a1030");
+      c.beginPath(); c.moveTo(bx, y); c.lineTo(bx + w * .5, y - th); c.lineTo(bx + w, y); c.closePath(); c.fillStyle = gr; c.fill(); c.lineWidth = 1.2; c.strokeStyle = "#1a0614"; c.stroke();
+    }
+    c.restore();
+  }
+}
 function drawPrompt(c, x, yTop, t) {
   const rx = 17, ry = 13, bob = Math.sin(t * 2.6) * 4, cy = yTop - 14 - bob, glow = .55 + .45 * Math.sin(t * 3);
   c.save();
@@ -1207,21 +1304,26 @@ function postFX(c, w, h, L) {
   c.restore();
 }
 function draw() {
-  const w = cv.width, h = cv.height, im = G.im; if (!im.complete || !im.naturalWidth) return;
+  const w = cv.width, h = cv.height, im = (G.im = levelImg(G.L)); if (!im.complete || !im.naturalWidth) return;
   const L = G.L, rowW = im.naturalWidth / RES, rowH = im.naturalHeight / RES, t = G.t;
   if (!G.bgc) G.bgc = buildBg(im);
   const d = RS, Wc = w / d, Hc = h / d;
-  let zs = Math.min(Hc * .7 / rowH, Wc / 300); zs = Math.max(zs, Wc / rowW);
+  let zs = Math.min(Hc * .78 / rowH, Wc / 300); zs = Math.max(zs, Wc / rowW);
   const s = zs * d, vw = w / s, rowPx = rowH * s;
-  const oy = h > rowPx ? (h - rowPx) * .55 : (h - rowPx) / 2;
+  let oy = h > rowPx ? (h - rowPx) * .55 : (h - rowPx) / 2;
+  // Cámara tipo Mario: ventana muerta (el personaje se mueve sin que la cámara reaccione) y, al salirse de ella,
+  // la cámara lo alcanza con suavidad; además mira hacia donde camina y sube un poco al saltar alto.
   const nowMs = performance.now(), dtd = Math.min(.1, (nowMs - (G.camT || nowMs)) / 1000); G.camT = nowMs;
-  G.lead = G.lead == null ? .42 : G.lead + ((G.face > 0 ? .4 : .56) - G.lead) * (1 - Math.pow(.3, dtd)); // la cámara mira hacia donde camina
-  const lead = G.lead;
-  // Durante el juego de los vasos el personaje no camina, así que la cámara encuadra
-  // el centro de los 3 vasos (en vez de seguir al personaje) para que siempre se vean completos.
-  const camTarget = G.camLock === "cups" && G.cups ? (Math.min(...G.cups.map(c => c.x)) + Math.max(...G.cups.map(c => c.x))) / 2 - vw / 2 : G.x - vw * lead;
+  G.lead = G.lead == null ? .4 : G.lead + ((G.face > 0 ? .38 : .58) - G.lead) * (1 - Math.exp(-dtd * 2.5));
+  const dz = .08, camEase = 1 - Math.exp(-dtd * 7);
+  let camTarget;
+  if (G.camLock === "cups" && G.cups) camTarget = (Math.min(...G.cups.map(c => c.x)) + Math.max(...G.cups.map(c => c.x))) / 2 - vw / 2; // vasos: encuadra los 3
+  else { const cur = G.cam == null ? G.x - vw * G.lead : G.cam, lo = G.x - vw * (G.lead + dz), hi = G.x - vw * (G.lead - dz); camTarget = Math.max(lo, Math.min(hi, cur)) }
   const tcam = Math.max(0, Math.min(rowW - vw, camTarget));
-  G.cam = G.cam == null || Math.abs(G.cam - tcam) > vw ? tcam : G.cam + (tcam - G.cam) * (1 - Math.pow(.88, 60 * dtd));
+  G.cam = G.cam == null || Math.abs(G.cam - tcam) > vw ? tcam : G.cam + (tcam - G.cam) * camEase;
+  const camYt = G.fly ? Math.max(-6, Math.min(6, (rowH * .5 - G.y) * .1)) : Math.max(-4, Math.min(16, (rowH * .55 - G.y) * .22));
+  G.camY = (G.camY || 0) + (camYt - (G.camY || 0)) * (1 - Math.exp(-dtd * 4));
+  oy += G.camY * s;
   const cam = G.cam + (G.shake > 0 ? rnd(-3, 3) * G.shake * 3 : 0);
   G.view = { s, cam, oy };
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#060a22"; ctx.fillRect(0, 0, w, h);
@@ -1238,7 +1340,7 @@ function draw() {
   ctx.globalCompositeOperation = "source-over";
   ctx.setTransform(s, 0, 0, s, -cam * s, oy);
   ctx.save();
-  if (!G.rowC || G.rowC.s !== s) { const rc = document.createElement("canvas"); const k = Math.min(s, 8000 / rowW); rc.width = Math.round(rowW * k); rc.height = Math.round(rowH * k); const rx = rc.getContext("2d"); rx.imageSmoothingQuality = "high"; rx.drawImage(im, 0, 0, rc.width, rc.height); rc.s = s; G.rowC = rc }
+  if (!G.rowC || G.rowC.s !== s) { const rc = document.createElement("canvas"); const k = Math.min(s, 12000 / rowW); rc.width = Math.round(rowW * k); rc.height = Math.round(rowH * k); const rx = rc.getContext("2d"); rx.imageSmoothingQuality = "high"; rx.drawImage(im, 0, 0, rc.width, rc.height); rc.s = s; G.rowC = rc }
   ctx.drawImage(G.rowC, 0, 0, rowW, rowH);
   // ambiente
   ctx.globalCompositeOperation = "lighter";
@@ -1265,32 +1367,33 @@ function draw() {
   const br = (L.bridges || []).concat(G.exitOn && L.exit ? [L.exit] : []);
   for (const [x0, x1, y] of br) drawSlabs(ctx, x0, x1, y, t); // puente: losas de hielo flotantes, mismo estilo que las plataformas del arte
   // plataformas móviles
-  if (L.movers) for (const m of L.movers) { const im2 = spr(m.spr), r = OBJ[m.spr.split("_")[0]][m.spr.split("_")[1]], [dx, dy] = moverOff(m, t); if (im2.complete) ctx.drawImage(im2, r[0] + dx, r[1] + dy, r[2], r[3]); ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(80,220,255,${.18 + .12 * pulse})`; ctx.beginPath(); ctx.ellipse((m.walk[0] + m.walk[1]) / 2 + dx, r[1] + r[3] + dy - 6, (m.walk[1] - m.walk[0]) * .3, 5, 0, 0, TAU); ctx.fill(); ctx.restore() }
+  if (L.movers) for (const m of L.movers) { const im2 = spr(m.spr), r = OBJ[m.spr.split("_")[0]][m.spr.split("_")[1]], [dx, dy] = moverOff(m, t); if (im2.complete) { if (m.mir) { ctx.save(); ctx.translate(m.mx - (r[0] + r[2] / 2) + dx, r[1] + r[3] / 2 + dy); ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] / 2, -r[3] / 2, r[2], r[3]); ctx.restore() } else ctx.drawImage(im2, r[0] + (m.sx || 0) + dx, r[1] + dy, r[2], r[3]) } ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(80,220,255,${.18 + .12 * pulse})`; ctx.beginPath(); ctx.ellipse((m.walk[0] + m.walk[1]) / 2 + dx, r[1] + r[3] + dy - 6, (m.walk[1] - m.walk[0]) * .3, 5, 0, 0, TAU); ctx.fill(); ctx.restore() }
   // obstáculos en movimiento
   if (L.obst) for (const o of L.obst) {
     const [ox, oy2, rot] = obstPos(o, t), im2 = spr(o.spr); if (!im2.complete) continue;
     const dangerPulse = .5 + .5 * Math.sin(t * 5 + o.c[0]);
     ctx.save(); ctx.globalCompositeOperation = "lighter";
-    const dg = ctx.createRadialGradient(ox, oy2, 0, ox, oy2, o.c[2] * 1.15);
+    const dg = ctx.createRadialGradient(ox, oy2, 0, ox, oy2, o.c[2] * OBS * 1.15);
     dg.addColorStop(0, `rgba(255,70,70,${.2 + .18 * dangerPulse})`); dg.addColorStop(1, "rgba(255,70,70,0)");
-    ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(ox, oy2, o.c[2] * 1.15, 0, TAU); ctx.fill();
+    ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(ox, oy2, o.c[2] * OBS * 1.15, 0, TAU); ctx.fill();
     ctx.restore();
-    const key = o.spr.split("_"); const r = OBJ[key[0]][key[1]]; ctx.save(); ctx.translate(ox, oy2); ctx.rotate(rot); if (o.at) ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] / 2, -r[3] / 2, r[2], r[3]); ctx.restore();
+    const key = o.spr.split("_"); const r = OBJ[key[0]][key[1]]; ctx.save(); ctx.translate(ox, oy2); ctx.rotate(rot); if (o.at) ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] * OBS / 2, -r[3] * OBS / 2, r[2] * OBS, r[3] * OBS); ctx.restore();
   }
+  drawHazards(ctx, L, t);
   // gemas
   for (const g of G.gems) if (!g.got) { const sx = Math.abs(Math.cos(t * 2.4 + g.x)) * 7 + 1, yy = g.y + Math.sin(t * 3 + g.x) * 3; drawGem(ctx, g.x, yy, sx, t) }
   // caja ?
   if (L.box && L.box.spr && G.boxGone < 1) {
-    const key = L.box.spr.split("_"), r = OBJ[key[0]][key[1]], im2 = spr(L.box.spr), bob = Math.sin(t * 2.6) * 3.5;
-    if (im2.complete) { ctx.save(); ctx.globalAlpha = 1 - G.boxGone; const sc = 1 + G.boxGone * .6, cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2 + bob; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.drawImage(im2, -r[2] / 2, -r[3] / 2, r[2], r[3]); ctx.restore() }
-    if (!G.answered) drawPrompt(ctx, L.box.x, r[1], t);
+    const key = L.box.spr.split("_"), r = OBJ[key[0]][key[1]], im2 = spr(L.box.spr), bob = Math.sin(t * 2.6) * 3.5, bx = r[0] + r[2] / 2 + (L.box.sx || 0), by = r[1] + r[3];
+    if (im2.complete) { ctx.save(); ctx.globalAlpha = 1 - G.boxGone; const sc = BOXS * (1 + G.boxGone * .6); ctx.translate(bx, by - r[3] * BOXS / 2 + bob); ctx.scale(sc / BOXS, sc / BOXS); ctx.drawImage(im2, -r[2] * BOXS / 2, -r[3] * BOXS / 2, r[2] * BOXS, r[3] * BOXS); ctx.restore() }
+    if (!G.answered) drawPrompt(ctx, L.box.x, by - r[3] * BOXS, t);
   }
-  if (L.star && !G.star) { const key = L.star.spr.split("_"), r = OBJ[key[0]][key[1]], im2 = spr(L.star.spr); if (im2.complete) ctx.drawImage(im2, r[0], r[1] + Math.sin(t * 2.2 + 1) * 3.5, r[2], r[3]) }
+  if (L.star && !G.star) { const key = L.star.spr.split("_"), r = OBJ[key[0]][key[1]], im2 = spr(L.star.spr); if (im2.complete) ctx.drawImage(im2, r[0] + (L.star.sx || 0) + r[2] * (1 - BOXS) / 2, r[1] + r[3] * (1 - BOXS) + Math.sin(t * 2.2 + 1) * 3.5, r[2] * BOXS, r[3] * BOXS) }
   // vasos
   if (G.cups) { for (const c of G.cups) if (c.i === G.cupHas && c.lift > 2) drawQBox(ctx, c.x, c.y, t); for (const c of G.cups) drawCup(ctx, c.x, c.y, c.lift, t);
     if (G.cupPick) { ctx.save(); ctx.fillStyle = "#ffcf4a"; ctx.font = "bold 13px 'Chakra Petch',sans-serif"; ctx.textAlign = "center"; G.cups.slice().sort((a, b) => a.x - b.x).forEach((c, i) => ctx.fillText(String(i + 1), c.x, c.y - 76 - pulse * 4)); ctx.restore() } }
   // portal
-  if (L.portal) drawPortal(ctx, L.portal.x, L.portal.y, L.portal.s || 1, t, G.portalOpen);
+  if (L.portal) drawPortal(ctx, L.portal.x, L.portal.y, (L.portal.s || 1) * PS, t, G.portalOpen);
   if (G.trail.length) for (const tr of G.trail) { tr.a *= G.fly ? 0.9 : 0.8; ctx.fillStyle = `rgba(63,214,255,${tr.a * 0.5})`; ctx.fillRect(tr.x - 10, tr.y, 20, 3) }
   // personaje
   let f = 8, bob = 0, lean = 0, run = null, runImg = null;
@@ -1308,7 +1411,7 @@ function draw() {
   if (G.emerge > 0) ctx.globalAlpha *= 1 - G.emerge * 0.85; // se desvanece al materializarse al llegar
   ctx.save();
   let px = G.x, py = G.y + bob, sc = K;
-  if (G.absorb) { const a = G.absorb, P = L.portal; px += (P.x - px) * a; py += (P.y - 30 * (P.s || 1) - py) * a; sc = K * (1 - a * .95) }
+  if (G.absorb) { const a = G.absorb, P = L.portal; px += (P.x - px) * a; py += (P.y - 40 * PS * (P.s || 1) - py) * a; sc = K * (1 - a * .95) }
   ctx.translate(px, py); if (G.absorb) ctx.rotate(G.absorb * 7); else if (G.emerge > 0) ctx.rotate(G.emerge * G.emerge * -.6);
   const sq = (G.squash || 0) * .12; // positivo = aplasta al aterrizar, negativo = estira al despegar
   if (G.fly) sc *= FLY_K;
@@ -1392,6 +1495,7 @@ function pickSlot(n) { const sorted = G.cups.slice().sort((a, b) => a.x - b.x); 
 
 async function playArea(area) {
   const A = AREA[area];
+  carryLives = MAX_LIVES; areaGems0[area] = gemsTotal; // intento nuevo: vidas completas y gemas del inicio del recorrido
   let fin;
   await transition(() => { show("s-game"); resize(); fin = startLevel(area, 0) });
   await say(A.intro); G.busy = false; await fin;
