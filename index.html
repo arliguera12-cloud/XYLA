@@ -897,7 +897,10 @@ new Image().src = AVATARS.nino.src;
 const runSheets = {}; for (const a of Object.values(AVATARS)) if (a.run) { const i = new Image(); i.src = a.run; runSheets[a.src] = i }
 function runSheetFor(sh) { const i = Object.entries(runSheets).find(([k]) => sh.src.endsWith(k)); return i && i[1].complete && i[1].naturalWidth ? i[1] : null }
 function applyAvatar(k) { const a = AVATARS[k] || AVATARS.nina; if (!sheet.src.endsWith(a.src)) sheet.src = a.src; $("#app").style.setProperty("--avatar", `url(${a.src})`) }
-const CW = 260, CH = 420, K = 0.22, FLY_K = .72; // FLY_K: tamaño del avatar al volar
+// Proporciones tipo Mario: el personaje mide ~1/5 del alto de la pantalla (antes 1/3), así hay más mundo a la vista.
+// KR y FR escalan todo lo que estaba medido para el tamaño anterior (K .22, FLY_K .72): zancada, sombra, estela, llama.
+const CW = 260, CH = 420, K = 0.15, FLY_K = .9; // FLY_K: tamaño del avatar al volar
+const KR = K / 0.22, FR = K * FLY_K / (0.22 * 0.72);
 const keys = { left: 0, right: 0, up: 0, down: 0 };
 let running = false, G = null, last = 0, gemsTotal = 0;
 const TAU = Math.PI * 2;
@@ -955,7 +958,7 @@ function startLevel(area, idx) {
         cups: null, cupPick: false, fx: null, parts: [], lives: MAX_LIVES, camLock: null, emerge: 1, warpFlash: 0, flyTilt: 0, nearMiss: {} };
   setTheme(area === "alg" ? "alg" : null);
   const p0 = platAt(G.x); if (!L.fly && p0) G.y = p0[2];
-  boom(G.x, G.y - 30, "200,230,255"); // chispazo de llegada: el personaje se "materializa" al entrar al nivel
+  boom(G.x, G.y - 22, "200,230,255"); // chispazo de llegada: el personaje se "materializa" al entrar al nivel
   const dots = $("#g-dots"); dots.innerHTML = [0, 1, 2].map(i => `<i class="${i < idx || idx === 4 ? "on" : ""}"></i>`).join("");
   $("#g-lvl").textContent = AREA[area].name + (idx === 0 ? " · Bienvenida" : idx === 4 ? " · Meta" : ` · Nivel ${idx}`);
   $('[data-k="down"]').setAttribute("aria-label", G.fly ? "Bajar" : "Agacharse");
@@ -1010,15 +1013,15 @@ function step(dt) {
   if (G.fly) {
     G.vx = dir * 230; G.vy = busy ? 0 : (keys.down - keys.up) * 200;
     G.kb = (G.kb || 0) * Math.pow(.02, dt);               // empuje del golpe que se va frenando
-    G.x += (G.vx + G.kb) * dt; G.y = Math.max(40, Math.min(rowH - 8, G.y + G.vy * dt));
+    G.x += (G.vx + G.kb) * dt; G.y = Math.max(30, Math.min(rowH - 8, G.y + G.vy * dt));
     // inclinación dinámica: sube/baja según la velocidad vertical, como un jetpack real (Jetpack Joyride)
     const tiltTarget = Math.max(-1, Math.min(1, -G.vy / 180)) * .55;
     G.flyTilt += (tiltTarget - G.flyTilt) * Math.min(1, dt * 7);
     const tailA = .35 + G.flyTilt * .5;
-    G.trail.push({ x: G.x - 20 * G.face, y: G.y - 22, a: 1 }); if (G.trail.length > 24) G.trail.shift();
+    G.trail.push({ x: G.x - 20 * FR * G.face, y: G.y - 22 * FR, a: 1 }); if (G.trail.length > 24) G.trail.shift();
     // llama de propulsión: partículas cálidas saliendo de la espalda, más intensas si está subiendo
     const thrust = .55 + Math.max(0, -G.vy) / 150;
-    if (Math.random() < dt * 30 * thrust) { const tx = G.x - G.face * Math.cos(tailA) * 34, ty = G.y - Math.sin(tailA) * -34 + 14; G.parts.push({ x: tx + rnd(-3, 3), y: ty + rnd(-3, 3), vx: -G.face * rnd(40, 90) + G.vx * .3, vy: rnd(-10, 10), t: 0, life: rnd(.25, .4), c: Math.random() < .5 ? "255,170,60" : "255,220,120", r: rnd(2, 4), jet: 1 }) }
+    if (Math.random() < dt * 30 * thrust) { const tx = G.x - G.face * Math.cos(tailA) * 34 * FR, ty = G.y - Math.sin(tailA) * -34 * FR + 14 * FR; G.parts.push({ x: tx + rnd(-3, 3), y: ty + rnd(-3, 3), vx: -G.face * rnd(40, 90) + G.vx * .3, vy: rnd(-10, 10), t: 0, life: rnd(.25, .4), c: Math.random() < .5 ? "255,170,60" : "255,220,120", r: rnd(2, 4), jet: 1 }) }
     // colisión precisa: tres círculos a lo largo del cuerpo inclinado (cabeza, torso, piernas)
     if (G.inv <= 0) {
       const Hb = CH * K * FLY_K, lean = .35;
@@ -1063,7 +1066,7 @@ function step(dt) {
   G.x = Math.max(14, Math.min(rowW - 14, G.x));
   // gemas: el punto de agarre depende de la pose real (de pie vs. volando inclinada), si no el
   // hitbox queda desalineado de lo que se ve en pantalla y las gemas "no se sienten" agarrables.
-  let gcx = G.x, gcy = G.y - 45, grx = 22, gry = 50;
+  let gcx = G.x, gcy = G.y - 28, grx = 26, gry = 40;
   if (G.fly) { const Hb = CH * K * FLY_K; gcx = G.x + G.face * Math.sin(.35) * .5 * Hb; gcy = G.y - Math.cos(.35) * .5 * Hb; grx = 34; gry = 42 }
   for (const g of G.gems) if (!g.got && Math.abs(gcx - g.x) < grx && Math.abs(gcy - g.y) < gry) { g.got = 1; gemsTotal++; updGems(); sfxGem(); for (let i = 0; i < 10; i++) G.burst.push({ x: g.x, y: g.y, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, life: .7, c: "120,255,220" }) }
   if (L.star && !G.star && Math.abs(G.x - L.star.x) < 34) { G.star = true; toast("⭐ ¡Estrella conseguida!"); gemsTotal += 3; updGems(); boom(L.star.x, 40, "255,210,80"); freeze(70); sfxStar() }
@@ -1180,6 +1183,7 @@ function makeBokeh(L, W, H) {
    ni la atmósfera de la escena. Una viñeta + gradación de color + un bloom sutil (todo en
    pantalla completa, después de dibujar el mundo) es la forma estándar de unificarlo. */
 const GRADE = { lava: "255,120,60", water: "60,170,255", cave: "150,100,255", space: "90,120,255" };
+const FG_TINT = { space: "4,8,30", cave: "8,6,30", lava: "30,6,6", water: "2,22,30" };
 function postFX(c, w, h, L) {
   c.save();
   // viñeta: oscurece las esquinas y centra la atención en la acción
@@ -1210,12 +1214,14 @@ function draw() {
   let zs = Math.min(Hc * .7 / rowH, Wc / 300); zs = Math.max(zs, Wc / rowW);
   const s = zs * d, vw = w / s, rowPx = rowH * s;
   const oy = h > rowPx ? (h - rowPx) * .55 : (h - rowPx) / 2;
-  const lead = .42;
+  const nowMs = performance.now(), dtd = Math.min(.1, (nowMs - (G.camT || nowMs)) / 1000); G.camT = nowMs;
+  G.lead = G.lead == null ? .42 : G.lead + ((G.face > 0 ? .4 : .56) - G.lead) * (1 - Math.pow(.3, dtd)); // la cámara mira hacia donde camina
+  const lead = G.lead;
   // Durante el juego de los vasos el personaje no camina, así que la cámara encuadra
   // el centro de los 3 vasos (en vez de seguir al personaje) para que siempre se vean completos.
   const camTarget = G.camLock === "cups" && G.cups ? (Math.min(...G.cups.map(c => c.x)) + Math.max(...G.cups.map(c => c.x))) / 2 - vw / 2 : G.x - vw * lead;
   const tcam = Math.max(0, Math.min(rowW - vw, camTarget));
-  G.cam = G.cam == null || Math.abs(G.cam - tcam) > vw ? tcam : G.cam + (tcam - G.cam) * .12;
+  G.cam = G.cam == null || Math.abs(G.cam - tcam) > vw ? tcam : G.cam + (tcam - G.cam) * (1 - Math.pow(.88, 60 * dtd));
   const cam = G.cam + (G.shake > 0 ? rnd(-3, 3) * G.shake * 3 : 0);
   G.view = { s, cam, oy };
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#060a22"; ctx.fillRect(0, 0, w, h);
@@ -1296,7 +1302,7 @@ function draw() {
   if (G.absorb) f = 5;
   if (!G.absorb) { // sombra bajo los pies
     let gy = null; if (!G.fly) { for (const p of plats()) if (G.x >= p[0] - 6 && G.x <= p[1] + 6 && p[2] >= G.y - 1 && (gy === null || p[2] < gy)) gy = p[2] }
-    if (gy !== null) { const hgt = Math.max(0, gy - G.y), k = Math.max(.35, 1 - hgt / 160); ctx.save(); ctx.globalAlpha = .45 * k; const sg = ctx.createRadialGradient(G.x, gy, 0, G.x, gy, 26 * k); sg.addColorStop(0, "rgba(0,0,20,.9)"); sg.addColorStop(1, "rgba(0,0,20,0)"); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(G.x, gy, 26 * k, 6 * k, 0, 0, TAU); ctx.fill(); ctx.restore() }
+    if (gy !== null) { const hgt = Math.max(0, gy - G.y), k = Math.max(.35, 1 - hgt / 160); ctx.save(); ctx.globalAlpha = .45 * k; const sg = ctx.createRadialGradient(G.x, gy, 0, G.x, gy, 26 * KR * k); sg.addColorStop(0, "rgba(0,0,20,.9)"); sg.addColorStop(1, "rgba(0,0,20,0)"); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(G.x, gy, 26 * KR * k, 6 * KR * k, 0, 0, TAU); ctx.fill(); ctx.restore() }
   }
   if (G.inv > 0 && Math.floor(t * 16) % 2) ctx.globalAlpha = 0.35;
   if (G.emerge > 0) ctx.globalAlpha *= 1 - G.emerge * 0.85; // se desvanece al materializarse al llegar
@@ -1309,9 +1315,9 @@ function draw() {
   if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
   ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(.35 - G.flyTilt); else if (lean) ctx.rotate(lean);
   if (runImg) { // 8 cuadros por ciclo de ~125 px recorridos: el pie no patina
-    const av = Object.values(AVATARS).find(a => a.run && sheet.src.endsWith(a.src)), i = Math.floor((((G.x * G.face / 125) % 1) + 1) % 1 * 8);
+    const av = Object.values(AVATARS).find(a => a.run && sheet.src.endsWith(a.src)), i = Math.floor((((G.x * G.face / (125 * KR)) % 1) + 1) % 1 * 8);
     ctx.drawImage(runImg, i * av.runW, 0, av.runW, CH, 8 - av.runA, -CH + 3, av.runW, CH);
-  } else if (run) drawRun(ctx, run, G.x * G.face / 103); // fase ligada a la distancia: el pie no patina
+  } else if (run) drawRun(ctx, run, G.x * G.face / (103 * KR)); // fase ligada a la distancia: el pie no patina
   else ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH);
   ctx.restore(); ctx.globalAlpha = 1;
   // chispas
@@ -1325,7 +1331,16 @@ function draw() {
   const camNear = cam * 1.18;
   ctx.setTransform(s, 0, 0, s, -camNear * s, oy);
   for (const bk of G.bokeh) { const yy = bk.y + Math.sin(t * .4 * bk.s + bk.x) * 8; ctx.fillStyle = `rgba(210,235,255,${bk.a})`; ctx.beginPath(); ctx.arc(bk.x, yy, bk.r, 0, TAU); ctx.fill() }
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // Siluetas de primer plano (como las plantas y rocas oscuras de los juegos de plataformas): pegadas
+  // al borde de la pantalla y más rápidas que la cámara; van debajo del escenario, nunca tapan la acción.
+  { const fgc = FG_TINT[L.fx] || FG_TINT.space, step = 190 * s, shift = (cam * 1.5 * s) % step, base = h + 2;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    for (let i = -1; i < w / step + 2; i++) {
+      const x0 = i * step - shift, sd = Math.floor((cam * 1.5 * s - shift) / step + i), r1 = Math.abs(Math.sin(sd * 12.9898) * 43758.5453) % 1, r2 = Math.abs(Math.sin(sd * 78.233) * 12345.678) % 1;
+      const hh = h * (.07 + .09 * r1), ww = step * (.3 + .35 * r2);
+      ctx.fillStyle = `rgba(${fgc},.92)`; ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x0 + ww * .15, base - hh * .45); ctx.lineTo(x0 + ww * .38, base - hh); ctx.lineTo(x0 + ww * .52, base - hh * .55); ctx.lineTo(x0 + ww * .7, base - hh * .8); ctx.lineTo(x0 + ww, base); ctx.closePath(); ctx.fill();
+    }
+    const fg2 = ctx.createLinearGradient(0, h - h * .16, 0, h); fg2.addColorStop(0, `rgba(${fgc},0)`); fg2.addColorStop(1, `rgba(${fgc},.55)`); ctx.fillStyle = fg2; ctx.fillRect(0, h - h * .16, w, h * .16); }
   postFX(ctx, w, h, L);
   // destello de golpe (rayos de luz y viñeta van en CSS: #fxov)
   if (G.flash > 0) { ctx.fillStyle = `rgba(255,60,90,${G.flash * .25})`; ctx.fillRect(0, 0, w, h) }
