@@ -955,11 +955,14 @@ new Image().src = AVATARS.nino.src;
 const runSheets = {}; for (const a of Object.values(AVATARS)) if (a.run) { const i = new Image(); i.src = a.run; runSheets[a.src] = i }
 function runSheetFor(sh) { const i = Object.entries(runSheets).find(([k]) => sh.src.endsWith(k)); return i && i[1].complete && i[1].naturalWidth ? i[1] : null }
 function applyAvatar(k) { const a = AVATARS[k] || AVATARS.nina; if (!sheet.src.endsWith(a.src)) sheet.src = a.src; $("#app").style.setProperty("--avatar", `url(${a.src})`) }
-// Proporciones tipo Mario: el personaje mide ~1/5 del alto de la pantalla (antes 1/3), así hay más mundo a la vista.
+// Proporciones: el personaje mide ~28% del alto de la pantalla (probado: .13 se veía muy chico, .22 muy grande).
 // KR y FR escalan todo lo que estaba medido para el tamaño anterior (K .22, FLY_K .72): zancada, sombra, estela, llama.
-const CW = 260, CH = 420, K = 0.13, FLY_K = .9; // FLY_K: tamaño del avatar al volar
+const CW = 260, CH = 420, K = 0.18, FLY_K = .9; // FLY_K: tamaño del avatar al volar
+// Física de plataformas: correr y saltar más lento que antes; subir con la tecla presionada es más ligero que caer (salto con peso).
+// El hueco más ancho de los niveles mide 200 u: alcance = RUN_V x tiempo en el aire ~ 208 u (+16 u de tolerancia en los bordes).
+const RUN_V = 250, JUMP_V = 475, G_UP = 1050, G_DOWN = 1500;
 const KR = K / 0.22, FR = K * FLY_K / (0.22 * 0.72);
-const BOXS = .6, PS = .72, OBS = .8; // OBS: asteroides // caja ?, estrella y portales: más chicos para que pesen como el personaje (el cubo era más alto que él)
+const BOXS = .7, PS = .82, OBS = .85; // OBS: asteroides // caja ?, estrella y portales: más chicos para que pesen como el personaje (el cubo era más alto que él)
 const keys = { left: 0, right: 0, up: 0, down: 0 };
 let running = false, G = null, last = 0, gemsTotal = 0;
 const TAU = Math.PI * 2;
@@ -1115,11 +1118,11 @@ function step(dt) {
     // arrastre de plataforma móvil
     if (G.on && G.ground) { const [ax, ay] = moverOff(G.on, prevT), [bx, by] = moverOff(G.on, G.t); G.x += bx - ax; G.y += by - ay }
     const wasFast = Math.abs(G.vx) > 220;
-    G.vx = dir * 300 * (keys.down && G.ground ? 0.35 : 1);
+    G.vx = dir * RUN_V * (keys.down && G.ground ? 0.35 : 1);
     if (wasFast && dir === 0 && G.ground) G.squash = Math.max(G.squash || 0, .5); // frenada brusca
-    if (!busy && keys.up && (G.ground || G.coyote > 0)) { G.vy = -610; G.ground = false; G.coyote = 0; G.jt = 0; G.on = null; G.squash = -.8; sfxJump() }
+    if (!busy && keys.up && (G.ground || G.coyote > 0)) { G.vy = -JUMP_V; G.ground = false; G.coyote = 0; G.jt = 0; G.on = null; G.squash = -.8; sfxJump() }
     if (!keys.up && G.vy < -250) G.vy = -250;
-    const prevY = G.y, fallV = G.vy; G.vy += 1500 * dt; G.x += (G.vx + (G.kbx || 0)) * dt; G.kbx = (G.kbx || 0) * Math.pow(.02, dt); G.y += G.vy * dt; G.jt = (G.jt || 0) + dt;
+    const prevY = G.y, fallV = G.vy; G.vy += (G.vy < 0 && keys.up ? G_UP : G_DOWN) * dt; G.x += (G.vx + (G.kbx || 0)) * dt; G.kbx = (G.kbx || 0) * Math.pow(.02, dt); G.y += G.vy * dt; G.jt = (G.jt || 0) + dt;
     G.coyote = Math.max(0, (G.coyote || 0) - dt);
     let landed = null;
     if (G.vy >= 0) for (const p of plats()) { if (G.x >= p[0] - 8 && G.x <= p[1] + 8 && prevY <= p[2] + 3 && G.y >= p[2]) { G.y = p[2]; G.vy = 0; landed = p; break } }
@@ -1149,7 +1152,7 @@ function step(dt) {
   G.x = Math.max(14, Math.min(rowW - 14, G.x));
   // gemas: el punto de agarre depende de la pose real (de pie vs. volando inclinada), si no el
   // hitbox queda desalineado de lo que se ve en pantalla y las gemas "no se sienten" agarrables.
-  let gcx = G.x, gcy = G.y - 24, grx = 26, gry = 38;
+  let gcx = G.x, gcy = G.y - 28, grx = 26, gry = 40;
   if (G.fly) { const Hb = CH * K * FLY_K; gcx = G.x + G.face * Math.sin(.35) * .5 * Hb; gcy = G.y - Math.cos(.35) * .5 * Hb; grx = 34; gry = 42 }
   for (const g of G.gems) if (!g.got && Math.abs(gcx - g.x) < grx && Math.abs(gcy - g.y) < gry) { g.got = 1; gemsTotal++; updGems(); gemBonus(); sfxGem(); for (let i = 0; i < 10; i++) G.burst.push({ x: g.x, y: g.y, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, life: .7, c: "120,255,220" }) }
   if (L.star && !G.star && Math.abs(G.x - L.star.x) < 34) { G.star = true; toast("⭐ ¡Estrella conseguida!"); gemsTotal += 3; updGems(); gemBonus(); boom(L.star.x, 40, "255,210,80"); freeze(70); sfxStar() }
@@ -1308,7 +1311,7 @@ function draw() {
   const L = G.L, rowW = im.naturalWidth / RES, rowH = im.naturalHeight / RES, t = G.t;
   if (!G.bgc) G.bgc = buildBg(im);
   const d = RS, Wc = w / d, Hc = h / d;
-  let zs = Math.min(Hc * .78 / rowH, Wc / 300); zs = Math.max(zs, Wc / rowW);
+  let zs = Math.min(Hc * .72 / rowH, Wc / 300); zs = Math.max(zs, Wc / rowW);
   const s = zs * d, vw = w / s, rowPx = rowH * s;
   let oy = h > rowPx ? (h - rowPx) * .55 : (h - rowPx) / 2;
   // Cámara tipo Mario: ventana muerta (el personaje se mueve sin que la cámara reaccione) y, al salirse de ella,
