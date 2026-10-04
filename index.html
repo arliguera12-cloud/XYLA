@@ -1,0 +1,2039 @@
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XYLA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Nunito:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: una sola pantalla tipo consola arcade; cada escena ocupa el marco completo, con paneles de cristal neón encima del escenario. Tema oscuro único a propósito (mundo de cristal nocturno). */
+:root{
+  --void:#060a22; --deep:#0b1440; --glass:rgba(12,24,78,.82);
+  --line:#3fd6ff; --glow:#9ef2ff; --line-rgb:63,214,255; --glow-rgb:158,242,255;
+  --ink:#eaf6ff; --muted:#93acd9; --ok:#45f5a1; --bad:#ff4f6e; --gold:#ffcf4a; --violet:#a46bff;
+  --f-display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --f-body:"Nunito","Segoe UI",system-ui,sans-serif;
+  --f-code:"JetBrains Mono",Consolas,"Courier New",monospace;
+  --r:14px;
+  color-scheme:dark;
+}
+/* Acento de color por área: cada mundo tinta HUD, paneles y botones con su propia identidad.
+   --line/--glow y sus -rgb se declaran ambos sin anidar var(), porque un alias rgb(var(--x))
+   se "congela" en el punto donde se declara y no se recalcula por pantalla. */
+.theme-alg{ --line:#a46bff; --glow:#cdb3ff; --line-rgb:164,107,255; --glow-rgb:210,185,255; } /* álgebra: cueva violeta */
+.theme-geo{ --line:#45f5a1; --glow:#a5ffd6; --line-rgb:69,245,161; --glow-rgb:165,255,214; } /* geometría: verde esmeralda */
+.theme-prog{ --line:#ffcf4a; --glow:#ffe396; --line-rgb:255,207,74; --glow-rgb:255,227,150; } /* programación: dorado */
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--void);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;overflow:hidden}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{position:relative;height:100%;width:100%;overflow:hidden;background:radial-gradient(120% 90% at 50% 0%,#132a7a 0%,var(--void) 60%)}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;overflow:auto}
+.screen[hidden]{display:none!important}
+.pad{padding-inline:16px;padding-block:16px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:.04em}
+.btn{position:relative;overflow:hidden;font-family:var(--f-display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;border:2px solid var(--line);background:linear-gradient(180deg,rgba(var(--line-rgb),.25),rgba(var(--line-rgb),.06));padding:12px 22px;border-radius:10px;box-shadow:0 0 18px rgba(var(--line-rgb),.35),inset 0 0 12px rgba(var(--line-rgb),.25);transition:transform .12s,box-shadow .12s}
+.btn::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(115deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-18deg);transition:left .55s ease}
+.btn:hover::after{left:130%}
+.btn:hover{transform:translateY(-2px);box-shadow:0 0 28px rgba(var(--line-rgb),.6),inset 0 0 14px rgba(var(--line-rgb),.3)}
+.btn:active{transform:translateY(1px)}
+.btn.gold{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,207,74,.28),rgba(255,207,74,.06));box-shadow:0 0 18px rgba(255,207,74,.4)}
+.btn.ghost{border-color:rgba(147,172,217,.5);box-shadow:none;background:transparent;color:var(--muted);font-size:.8rem;padding:8px 14px}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn:disabled::after{display:none}
+@media (prefers-reduced-motion:reduce){.btn::after{display:none}}
+.panel{background:var(--glass);border:2px solid var(--line);border-radius:var(--r);box-shadow:0 0 22px rgba(var(--line-rgb),.3),inset 0 0 22px rgba(var(--line-rgb),.12);backdrop-filter:blur(6px)}
+.label{font-family:var(--f-display);font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--glow)}
+.nina{aspect-ratio:260/420;background:var(--avatar,url(assets/nina.png)) 100% 0/900% 100% no-repeat;filter:drop-shadow(0 0 12px rgba(var(--line-rgb),.45))}
+
+/* Fondo de estrellas para pantallas de menú */
+.menu-bg{background:linear-gradient(180deg,rgba(6,10,34,.55),rgba(6,10,34,.92)),url(assets/alg1.jpg) center/cover}
+/* Símbolos matemáticos flotando de fondo, con un leve paralaje al mover el mouse */
+.mathfx{position:absolute;inset:-4%;overflow:hidden;pointer-events:none;z-index:0;transition:transform .3s ease-out}
+.mathfx span{position:absolute;bottom:-14%;font-family:var(--f-display);font-weight:700;color:rgba(var(--glow-rgb),.16);text-shadow:0 0 16px rgba(var(--line-rgb),.35);animation:mfxUp linear infinite}
+@keyframes mfxUp{to{bottom:114%}}
+@media (prefers-reduced-motion:reduce){.mathfx span{animation:none;display:none}}
+/* Título */
+#s-title{align-items:center;justify-content:center;gap:24px;text-align:center}
+.logo{font-family:var(--f-display);font-weight:700;font-size:clamp(4rem,16vw,9rem);letter-spacing:.22em;line-height:1;margin-right:-.22em;color:var(--ink);text-shadow:0 0 12px var(--line),0 0 42px var(--line),0 0 90px var(--violet)}
+.tag{font-family:var(--f-display);letter-spacing:.3em;color:var(--glow);font-size:.85rem;text-transform:uppercase}
+.linkbtn{background:none;border:0;color:var(--glow);text-decoration:underline;text-underline-offset:4px;font-weight:600}
+
+/* Formularios */
+.form-wrap{margin:auto;width:min(440px,100%);display:flex;flex-direction:column;gap:16px}
+.form{padding:22px;display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field input{background:rgba(3,8,30,.75);border:1.5px solid rgba(var(--line-rgb),.45);border-radius:8px;padding:10px 12px}
+.field input:focus{border-color:var(--glow);outline:none;box-shadow:0 0 0 3px rgba(var(--line-rgb),.25)}
+.err{color:var(--bad);font-weight:700;min-height:1.4em;font-size:.9rem}
+
+/* Robot que habla (tarjeta inline) */
+.say{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;text-align:left}
+.say p{margin:0}
+.bot{flex:0 0 56px;height:56px}
+
+/* Home */
+.home{width:min(1040px,100%);margin-inline:auto;display:flex;flex-direction:column;gap:18px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.who{display:flex;align-items:center;gap:10px;font-weight:800}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.tile{position:relative;text-align:left;padding:0;overflow:hidden;border-radius:var(--r);border:2px solid var(--line);background:var(--deep);box-shadow:0 0 20px rgba(var(--line-rgb),.25);display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s,border-color .15s}
+.tile::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.16) 50%,transparent 60%);background-size:220% 220%;background-position:120% 0;opacity:0;transition:opacity .2s;pointer-events:none}
+.tile:not(:disabled):hover{transform:translateY(-5px) scale(1.015);box-shadow:0 8px 30px rgba(var(--line-rgb),.4);border-color:var(--glow)}
+.tile:not(:disabled):hover::after{opacity:1;animation:tileShine 1.1s ease forwards}
+@keyframes tileShine{from{background-position:120% 0}to{background-position:-20% 0}}
+@media (prefers-reduced-motion:reduce){.tile::after{display:none}}
+.tile .pic{height:112px;background-size:cover;background-position:center}
+.tile .body{padding:12px 14px 16px;display:flex;flex-direction:column;gap:4px}
+.tile h3{font-size:1.1rem}
+.tile small{color:var(--muted)}
+.tile .state{position:absolute;top:10px;right:10px;font-family:var(--f-display);font-size:.72rem;letter-spacing:.14em;padding:4px 10px;border-radius:99px;background:rgba(6,10,34,.85);border:1px solid var(--line)}
+.tile.done .state{border-color:var(--ok);color:var(--ok)}
+.tile:disabled{filter:grayscale(.8) brightness(.6);cursor:not-allowed}
+.tile:disabled .state{color:var(--muted);border-color:var(--muted)}
+
+/* Juego */
+#s-game{background:var(--void)}
+.hud{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 16px;pointer-events:none}
+.hud>*{pointer-events:auto}
+.hud .btn.ghost{background:rgba(6,10,34,.55);color:var(--ink)}
+#s-game{position:absolute}
+#s-game .stage{position:absolute;inset:0}
+.hud .lvl{font-family:var(--f-display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:clamp(.8rem,2.4vw,1rem)}
+.dots{display:flex;gap:6px;padding:8px 10px;border-radius:99px;background:rgba(6,10,34,.55)}
+.dots i{width:26px;height:6px;border-radius:3px;background:rgba(147,172,217,.3)}
+.dots i.on{background:var(--line);box-shadow:0 0 8px var(--line)}
+.stage{position:relative;flex:1;min-height:220px}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+.controls{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));pointer-events:none}
+.controls .grp{display:flex;gap:12px;pointer-events:auto}
+.pad-btn{width:64px;height:64px;border-radius:50%;border:2px solid rgba(var(--line-rgb),.7);background:rgba(6,10,34,.55);font-size:1.6rem;display:grid;place-items:center;touch-action:none;user-select:none;-webkit-user-select:none}
+.pad-btn.on{background:rgba(var(--line-rgb),.35)}
+.hint{transition:opacity .6s;position:absolute;left:16px;bottom:12px;font-size:.8rem;color:var(--muted);background:rgba(6,10,34,.6);padding:4px 10px;border-radius:6px}
+@media (pointer:fine){.controls{display:none}}
+@media (pointer:coarse){.hint{display:none}}
+.toast{position:absolute;left:50%;top:16px;transform:translateX(-50%);font-family:var(--f-display);font-weight:700;letter-spacing:.08em;background:rgba(6,10,34,.9);border:2px solid var(--gold);color:var(--gold);padding:8px 16px;border-radius:10px;pointer-events:none;transition:opacity .3s;white-space:nowrap}
+.fade{position:absolute;inset:0;background:var(--void);opacity:0;pointer-events:none;transition:opacity .35s;z-index:40}
+.fade.on{opacity:1;pointer-events:auto}
+
+/* Diálogo del robot (sobre cualquier pantalla) */
+#dialog{position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(760px,calc(100% - 32px));z-index:30;display:flex;gap:14px;align-items:flex-end;padding:14px 16px;cursor:pointer}
+#dialog .who-tag{font-family:var(--f-display);font-size:.75rem;letter-spacing:.2em;color:var(--glow);text-transform:uppercase}
+#dialog.guardian{border-color:var(--bad);box-shadow:0 0 26px rgba(255,79,110,.45),inset 0 0 22px rgba(255,79,110,.15)}
+#dialog.guardian .who-tag{color:var(--bad)}
+#dlg-text{font-size:clamp(1rem,2.6vw,1.2rem);font-weight:600;min-height:3em;margin:2px 0 0}
+#dlg-next{margin-left:auto;flex:0 0 auto;align-self:flex-end}
+#dlg-av{flex:0 0 64px;height:64px}
+#dlg-av img{width:64px;height:64px;object-fit:cover;object-position:50% 18%;border-radius:12px;border:2px solid var(--bad)}
+.dlg-main{flex:1;min-width:0}
+
+/* Modal de pregunta */
+.modal{position:absolute;inset:0;z-index:35;display:grid;place-items:center;background:rgba(3,6,22,.72);padding-inline:16px;padding-block:16px;overflow:auto}
+.qbox{width:min(720px,100%);padding:22px;display:flex;flex-direction:column;gap:14px}
+.qhead{display:flex;align-items:center;gap:12px}
+.qbadge{display:grid;place-items:center;width:48px;height:48px;border-radius:10px;border:2px solid var(--line);font-family:var(--f-display);font-size:1.6rem;font-weight:700;color:var(--glow);box-shadow:0 0 14px rgba(var(--line-rgb),.5);background:rgba(var(--line-rgb),.1)}
+.qtext{font-size:clamp(1.15rem,3.4vw,1.5rem);font-weight:800}
+.qexpr{font-family:var(--f-code);font-size:clamp(1.4rem,5vw,2.1rem);color:var(--glow);text-align:center;padding:10px;border-radius:10px;background:rgba(3,8,30,.6);border:1px dashed rgba(var(--line-rgb),.5)}
+.opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.opt{padding:14px 10px;border-radius:12px;border:2px solid rgba(var(--line-rgb),.6);background:rgba(3,8,30,.7);font-family:var(--f-display);font-size:clamp(1rem,3vw,1.25rem);font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px;transition:transform .12s}
+.opt b{font-size:.8rem;color:var(--muted);letter-spacing:.2em}
+.opt:hover:not(:disabled){transform:translateY(-2px);border-color:var(--glow)}
+.opt.right{border-color:var(--ok);background:rgba(69,245,161,.15);box-shadow:0 0 18px rgba(69,245,161,.5)}
+.opt.wrong{border-color:var(--bad);background:rgba(255,79,110,.12);animation:shake .35s}
+.opt.cup{border-radius:12px 12px 26px 26px}
+.opt.cup::before{content:"";width:46px;height:34px;border:2px solid var(--glow);border-radius:4px 4px 12px 12px;background:rgba(var(--glow-rgb),.2);margin-bottom:4px}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.feedback{font-weight:700;min-height:1.5em}
+.feedback.ok{color:var(--ok)}.feedback.no{color:var(--bad)}
+.qfoot{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.qgrid{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:18px;align-items:start}
+@media (max-width:640px){.qgrid{grid-template-columns:1fr}.opts{grid-template-columns:1fr}}
+
+/* Calculadora */
+.calc{padding:12px;border-radius:12px;border:2px solid var(--violet);background:rgba(20,10,50,.85);box-shadow:0 0 18px rgba(164,107,255,.4)}
+.calc .scr{font-family:var(--f-code);font-size:1.4rem;text-align:right;background:#02050f;border-radius:8px;padding:8px 10px;margin-bottom:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--ok);font-variant-numeric:tabular-nums}
+.calc .keys{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.calc button{padding:10px 0;border-radius:8px;border:1px solid rgba(164,107,255,.6);background:rgba(164,107,255,.12);font-family:var(--f-code);font-weight:600}
+.calc button.op{color:var(--gold)}
+.calc button.eq{background:rgba(69,245,161,.2);border-color:var(--ok)}
+
+/* Geometría: memoria */
+#s-geo{background:var(--void)}
+.geo-stage{position:relative;margin:auto;width:min(100%,calc((100vh - 60px) * 1600 / 847));aspect-ratio:1600/847;max-width:100%;background:url(assets/geo.jpg) center/100% 100% no-repeat}
+.geo-stage .gcard{position:absolute;width:9.6%;height:18.6%}
+.geo-count{position:absolute;left:87.5%;top:8.6%;width:7.5%;height:4.6%;display:grid;place-items:center;background:#0a1650;border-radius:6px;font-family:var(--f-display);font-weight:700;font-size:clamp(.8rem,1.9vw,2rem);color:var(--ink);font-variant-numeric:tabular-nums}
+.geo-nina{position:absolute;left:4.2%;top:44%;height:28%}
+.gcard{perspective:700px;border:0;background:none;padding:0}
+.gcard .in{position:absolute;inset:0;transition:transform .45s;transform-style:preserve-3d}
+.gcard.up .in,.gcard.got .in{transform:rotateY(180deg)}
+.gcard .f,.gcard .b{position:absolute;inset:0;backface-visibility:hidden;border-radius:10px;border:2px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4%;background:#081238;box-shadow:0 0 12px rgba(var(--line-rgb),.5),inset 0 0 14px rgba(var(--line-rgb),.2)}
+.gcard .b{font-family:var(--f-display);font-weight:700;color:var(--glow);font-size:clamp(1rem,3vw,2.4rem);background:repeating-linear-gradient(45deg,#0b1848 0 8px,#0d1c56 8px 16px)}
+.gcard .f{transform:rotateY(180deg)}
+.gcard.got .f{border-color:var(--ok);box-shadow:0 0 16px rgba(69,245,161,.6)}
+.gcard svg{width:52%;height:auto;stroke:var(--glow);fill:none;stroke-width:5}
+.gcard .nm{font-size:clamp(.55rem,1.15vw,1rem);font-weight:700}
+.fx{font-family:"Cambria Math","Times New Roman",serif;font-style:italic;font-size:clamp(.7rem,1.7vw,1.6rem);display:inline-flex;align-items:center;gap:.25em;white-space:nowrap}
+.frac{display:inline-flex;flex-direction:column;align-items:center;line-height:1.05}
+.frac>span:first-child{border-bottom:1.5px solid currentColor;padding:0 .15em}
+.geo-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;flex-wrap:wrap}
+@media (max-width:760px){
+  .geo-stage{aspect-ratio:auto;width:100%;background:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding-inline:16px;padding-block:8px 110px}
+  .geo-stage .gcard{position:relative;left:auto!important;top:auto!important;width:auto;height:auto;aspect-ratio:152/160}
+  .geo-count,.geo-nina{display:none}
+  .gcard .nm{font-size:.7rem}.fx{font-size:.8rem}
+  #s-geo{background:linear-gradient(rgba(6,10,34,.8),rgba(6,10,34,.92)),url(assets/geo.jpg) center/cover}
+}
+
+/* Programación */
+#s-code{background:linear-gradient(rgba(6,10,34,.86),rgba(6,10,34,.94)),url(assets/alg3.jpg) center/cover}
+.code-wrap{width:min(1180px,100%);margin-inline:auto;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;padding-inline:16px;padding-block:14px 120px}
+.code-wrap>*{min-width:0}
+.col{display:flex;flex-direction:column;gap:14px}
+.steps{list-style:none;margin:0;padding:14px;display:flex;flex-direction:column;gap:10px}
+.steps li{display:flex;gap:12px;align-items:center}
+.steps .n{flex:0 0 36px;height:36px;display:grid;place-items:center;border:2px solid var(--line);border-radius:8px;font-family:var(--f-display);font-weight:700}
+.steps li.done .n{border-color:var(--ok);color:var(--ok);box-shadow:0 0 10px rgba(69,245,161,.5)}
+.video{display:flex;flex-direction:column;gap:10px;padding:14px}
+.video iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:10px;background:#000}
+.video a.btn{text-decoration:none;text-align:center}
+.codebox{border:2px solid var(--line);border-radius:12px;overflow:hidden;background:#050a1f}
+.codebar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:#0b1440;border-bottom:1px solid rgba(var(--line-rgb),.4)}
+.codebar .fn{font-family:var(--f-code);font-size:.85rem;color:var(--muted)}
+.copy{font-family:var(--f-display);font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:.8rem;border:1.5px solid var(--ok);color:var(--ok);background:rgba(69,245,161,.1);border-radius:8px;padding:6px 12px}
+.codebox pre{margin:0;padding:12px 14px;max-height:340px;overflow:auto;font-family:var(--f-code);font-size:.82rem;line-height:1.55;tab-size:4}
+.codebox{position:relative}
+.codebox.locked pre{filter:blur(6px);user-select:none;-webkit-user-select:none;pointer-events:none}
+.copy:disabled{opacity:.45;cursor:not-allowed;border-color:var(--muted);color:var(--muted);background:transparent}
+.lock{position:absolute;inset:42px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;text-align:center;background:rgba(3,7,22,.72)}
+.codebox:not(.locked) .lock{display:none}
+.lock .ico{font-size:2rem}
+.lock p{margin:0;font-family:var(--f-display);font-weight:700;letter-spacing:.08em;font-size:.9rem}
+.lock .meter{width:min(260px,80%);height:8px;border-radius:99px;background:rgba(var(--line-rgb),.15);overflow:hidden}
+.lock .meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .5s linear}
+.lock small{color:var(--muted);font-size:.8rem}
+.nosel{user-select:none;-webkit-user-select:none}
+.kw{color:#c792ff}.st{color:#ffcf7a}.cm{color:#6f86b8;font-style:italic}.nu{color:#7ff5c3}.fnm{color:#6fd6ff}
+#paste{width:100%;min-height:180px;resize:vertical;background:#030716;border:2px dashed rgba(var(--line-rgb),.55);border-radius:12px;padding:12px;font-family:var(--f-code);font-size:.82rem;line-height:1.5;box-sizing:border-box}
+.term{font-family:var(--f-code);font-size:.82rem;background:#02040e;border:1px solid rgba(var(--line-rgb),.35);border-radius:10px;padding:10px 12px;min-height:120px;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.term .ok{color:var(--ok)}.term .no{color:var(--bad)}.term .dim{color:var(--muted)}
+.boss{position:relative;padding:14px;display:flex;flex-direction:column;gap:10px;border-color:var(--bad);box-shadow:0 0 26px rgba(255,79,110,.4),inset 0 0 22px rgba(255,79,110,.12)}
+.boss h3{color:var(--bad);letter-spacing:.14em}
+.hp{height:14px;border-radius:7px;border:2px solid var(--bad);overflow:hidden;background:#1a0510}
+.hp>i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff2a55,#ff7a8e);transition:width .5s}
+.boss img{width:100%;max-height:360px;object-fit:cover;object-position:50% 20%;border-radius:10px;transition:filter .3s}
+.boss.hit img{animation:hit .4s}
+.boss.dead img{filter:grayscale(1) brightness(.35)}
+@keyframes hit{20%{transform:translateX(-10px);filter:brightness(2.2)}60%{transform:translateX(8px)}}
+.figs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.figs div{border:1.5px solid rgba(var(--line-rgb),.35);border-radius:8px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.62rem;color:var(--muted);text-align:center}
+.figs svg{width:70%;stroke:var(--muted);fill:none;stroke-width:6}
+.figs div.lit{border-color:var(--ok);color:var(--ok);box-shadow:0 0 10px rgba(69,245,161,.45)}
+.figs div.lit svg{stroke:var(--ok)}
+.prog{display:flex;align-items:center;gap:12px;padding:10px 14px}
+.prog .nina{height:74px}
+.prog .bar{flex:1;height:12px;border-radius:6px;border:2px solid var(--ok);overflow:hidden}
+.prog .bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .5s}
+@media (max-width:860px){.code-wrap{grid-template-columns:1fr}.boss img{max-height:240px}}
+
+/* Certificado */
+#s-cert{align-items:center;justify-content:flex-start;gap:18px;text-align:center}
+#confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cert{position:relative;width:min(760px,100%);aspect-ratio:1.414/1;max-width:100%;padding:5% 7%;box-sizing:border-box;border-radius:6px;background:radial-gradient(120% 120% at 50% 0%,#12236a,#070d30);border:3px solid var(--gold);box-shadow:0 0 40px rgba(255,207,74,.35),inset 0 0 0 10px rgba(255,207,74,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.2%}
+.cert .k{font-family:var(--f-display);letter-spacing:.35em;color:var(--gold);font-size:clamp(.6rem,1.8vw,1rem)}
+.cert .nm{font-family:var(--f-display);font-weight:700;font-size:clamp(1.3rem,5vw,2.8rem);border-bottom:2px solid var(--gold);padding:0 .4em .1em}
+.cert p{margin:0;font-size:clamp(.72rem,1.9vw,1.05rem);max-width:52ch;color:var(--ink)}
+.cert .row{display:flex;gap:6%;justify-content:center;width:100%;font-size:clamp(.6rem,1.5vw,.85rem);color:var(--muted)}
+.cert .seal{position:absolute;right:6%;bottom:8%;width:14%;aspect-ratio:1;border-radius:50%;border:2px solid var(--gold);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;color:var(--gold);font-size:clamp(.5rem,1.6vw,.95rem);transform:rotate(-12deg)}
+.big{font-family:var(--f-display);font-weight:700;font-size:clamp(2rem,7vw,3.6rem);color:var(--gold);text-shadow:0 0 22px rgba(255,207,74,.6)}
+#portal-ov{position:absolute;inset:0;z-index:38;background:radial-gradient(80% 70% at 50% 45%,rgba(40,20,110,.92),rgba(3,6,22,.97))}
+#portal-cv{position:absolute;inset:0;width:100%;height:100%}
+.pov-ui{position:absolute;left:0;right:0;bottom:calc(28px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding-inline:16px}
+.pov-ui .big{font-size:clamp(1.4rem,5vw,2.6rem)}
+.fs-btn{position:absolute;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:36;width:44px;height:44px;border-radius:10px;border:1.5px solid rgba(var(--line-rgb),.6);background:rgba(6,10,34,.6);color:var(--ink);font-size:1.3rem;display:grid;place-items:center}
+.fs-btn:hover{border-color:var(--glow)}
+@media (pointer:coarse){.fs-btn{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;left:16px;right:auto}}
+#s-game .hud{padding-right:16px}
+.certmodal{position:absolute;inset:0;z-index:45;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding-inline:16px;padding-block:16px;background:rgba(3,6,22,.9);text-align:center;overflow:auto}
+.certmodal img{max-width:min(900px,100%);max-height:70vh;border-radius:6px;box-shadow:0 0 30px rgba(255,207,74,.35);-webkit-touch-callout:default;user-select:auto}
+.certmodal p{margin:0;max-width:52ch}
+.avpick{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.av{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px 10px;border-radius:12px;border:2px solid rgba(var(--line-rgb),.35);background:rgba(3,8,30,.6);font-family:var(--f-display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;transition:transform .15s,border-color .15s,box-shadow .15s}
+.av .nina{height:130px;filter:none}
+.av:hover{transform:translateY(-3px)}
+.av[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 18px rgba(255,207,74,.45);background:rgba(255,207,74,.08)}
+.av[aria-pressed="true"] .nina{filter:drop-shadow(0 0 12px rgba(255,207,74,.5))}
+.avmodal{position:absolute;inset:0;z-index:44;display:grid;place-items:center;background:rgba(3,6,22,.8);padding-inline:16px;padding-block:16px}
+.avmodal .panel{width:min(420px,100%);padding:20px;display:flex;flex-direction:column;gap:14px}
+.rotate{position:absolute;inset:0;z-index:4;display:none;align-items:center;justify-content:center;pointer-events:none}
+.rotate span{background:rgba(6,10,34,.8);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:.85rem;margin-top:40%}
+@media (orientation:portrait) and (pointer:coarse){#s-game .rotate{display:flex}}
+#fxov{position:absolute;inset:0;pointer-events:none;z-index:2;overflow:hidden;background:radial-gradient(ellipse at 50% 55%,rgba(3,6,22,0) 45%,rgba(3,6,22,.55) 100%);--ray:150,190,255}
+#fxov[data-fx="lava"]{--ray:255,150,80}#fxov[data-fx="water"]{--ray:120,240,255}
+#fxov i{position:absolute;top:-10%;height:95%;width:12%;background:linear-gradient(180deg,rgba(var(--ray),.10),rgba(var(--ray),0));transform:skewX(-22deg);transform-origin:top;animation:ray 7s ease-in-out infinite alternate;will-change:opacity}
+#fxov i:nth-child(1){left:10%;animation-delay:-1s}#fxov i:nth-child(2){left:38%;width:8%;animation-delay:-3s}#fxov i:nth-child(3){left:62%;animation-delay:-5s}#fxov i:nth-child(4){left:86%;width:7%;animation-delay:-2s}
+@keyframes ray{0%{opacity:.35}100%{opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="app">
+
+  <!-- 1. INICIO -->
+  <section class="screen menu-bg pad" id="s-title">
+    <div class="tag">Retos de Matemáticas</div>
+    <div class="logo">XYLA</div>
+    <div style="display:flex;gap:10px;align-items:flex-end"><div class="nina" style="height:min(26vh,220px);--avatar:url(assets/nina.png)"></div><div class="nina" style="height:min(26vh,220px);--avatar:url(assets/nino.png)"></div></div>
+    <div class="row-btns" style="display:flex;flex-direction:column;gap:12px;align-items:center">
+      <button class="btn gold" id="b-start">Comenzar</button>
+      <button class="linkbtn" id="b-have">Ya tengo cuenta · Iniciar sesión</button>
+    </div>
+  </section>
+
+  <!-- 2. REGISTRO -->
+  <section class="screen menu-bg pad" id="s-reg" hidden>
+    <div class="form-wrap">
+      <h2 style="font-size:1.6rem">Crea tu cuenta</h2>
+      <form class="panel form" id="f-reg" novalidate>
+        <div class="field"><label for="r-name">Nombre</label><input id="r-name" autocomplete="name" required></div>
+        <div class="field"><label for="r-mail">Correo</label><input id="r-mail" type="email" autocomplete="email" required></div>
+        <div class="field"><span class="label" style="color:var(--muted);letter-spacing:.08em;font-family:var(--f-body);font-weight:800;font-size:.8rem">Elige tu avatar</span>
+          <div class="avpick" id="r-av"><button type="button" class="av" data-av="nina" aria-pressed="true"><div class="nina" style="--avatar:url(assets/nina.png)"></div>Niña</button><button type="button" class="av" data-av="nino" aria-pressed="false"><div class="nina" style="--avatar:url(assets/nino.png)"></div>Niño</button></div></div>
+        <div class="field"><label for="r-pass">Contraseña</label><input id="r-pass" type="password" autocomplete="new-password" required></div>
+        <div class="field"><label for="r-pass2">Confirmar contraseña</label><input id="r-pass2" type="password" autocomplete="new-password" required></div>
+        <div class="err" id="r-err" role="alert"></div>
+        <button class="btn" type="submit">Registrarse</button>
+      </form>
+      <button class="linkbtn" id="b-toLogin">Ya tengo cuenta</button>
+    </div>
+  </section>
+
+  <!-- 3. INICIO DE SESIÓN -->
+  <section class="screen menu-bg pad" id="s-login" hidden>
+    <div class="form-wrap">
+      <h2 style="font-size:1.6rem">Inicia sesión</h2>
+      <form class="panel form" id="f-login" novalidate>
+        <div class="field"><label for="l-mail">Correo</label><input id="l-mail" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="l-pass">Contraseña</label><input id="l-pass" type="password" autocomplete="current-password" required></div>
+        <div class="err" id="l-err" role="alert"></div>
+        <button class="btn" type="submit">Iniciar sesión</button>
+      </form>
+      <button class="linkbtn" id="b-toReg">Crear una cuenta nueva</button>
+    </div>
+  </section>
+
+  <!-- 4. HOME -->
+  <section class="screen menu-bg pad" id="s-home" hidden>
+    <div class="home">
+      <div class="topbar">
+        <div class="logo" style="font-size:2.4rem;letter-spacing:.18em">XYLA</div>
+        <div class="who"><button class="av" id="b-avatar" style="flex-direction:row;padding:4px 12px 4px 4px;gap:8px;font-size:.75rem" title="Cambiar avatar"><div class="nina" style="height:44px"></div><span>Avatar</span></button><span id="h-name"></span><button class="btn ghost" id="b-logout">Salir</button></div>
+      </div>
+      <div class="tiles" id="tiles"></div>
+    </div>
+  </section>
+
+  <!-- JUEGO DE PLATAFORMAS -->
+  <section class="screen" id="s-game" hidden>
+    <div class="hud">
+      <div class="lvl" id="g-lvl" hidden></div>
+      <div style="display:flex;gap:14px;align-items:center"><div class="dots" id="g-dots"></div><span class="label" id="g-lives" style="white-space:nowrap;padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55)" aria-live="polite"></span><span class="label" id="g-gems" style="font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55);display:inline-flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><polygon points="8,1 14,8 8,8" fill="#c4fff2"/><polygon points="8,15 14,8 8,8" fill="#3ccdaf"/><polygon points="8,1 2,8 8,8" fill="#c4fff2"/><polygon points="8,15 2,8 8,8" fill="#3ccdaf"/></svg><span id="g-gems-n">0</span></span></div>
+      <button class="btn ghost" id="g-menu">Menú</button>
+    </div>
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div id="fxov" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="rotate"><span>Gira tu celular para ver el escenario más grande ↻</span></div>
+      <div class="toast" id="toast" style="opacity:0"></div>
+      <div class="hint" id="g-hint">← → caminar · ↑ o Espacio saltar · ↓ agacharse</div>
+      <div class="controls" id="ctrl">
+        <div class="grp"><button class="pad-btn" data-k="left" aria-label="Izquierda">◀</button><button class="pad-btn" data-k="right" aria-label="Derecha">▶</button></div>
+        <div class="grp"><button class="pad-btn" data-k="down" aria-label="Abajo">▼</button><button class="pad-btn" data-k="up" aria-label="Saltar">▲</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GEOMETRÍA -->
+  <section class="screen" id="s-geo" hidden>
+    <div class="geo-top">
+      <div class="lvl" style="font-family:var(--f-display);font-weight:700;letter-spacing:.12em">GEOMETRÍA · MEMORIA DE FÓRMULAS</div>
+      <div style="display:flex;gap:10px;align-items:center"><span class="label" id="geo-left2"></span><button class="btn ghost" id="geo-menu">Menú</button></div>
+    </div>
+    <div class="geo-stage" id="geo-stage">
+      <div class="geo-count" id="geo-left"></div>
+      <div class="nina geo-nina"></div>
+    </div>
+  </section>
+
+  <!-- PROGRAMACIÓN -->
+  <section class="screen" id="s-code" hidden>
+    <div class="geo-top">
+      <div style="font-family:var(--f-display);font-weight:700;letter-spacing:.12em">PROGRAMACIÓN · CALCULADORA DE ÁREAS</div>
+      <button class="btn ghost" id="code-menu">Menú</button>
+    </div>
+    <div class="code-wrap">
+      <div class="col">
+        <ol class="panel steps" id="steps">
+          <li data-s="1"><span class="n">1</span><span>Mira el video instructivo.</span></li>
+          <li data-s="2"><span class="n">2</span><span>Copia el código y prográmalo en Visual Studio Code.</span></li>
+          <li data-s="3"><span class="n">3</span><span>Ejecuta tu programa y verifica que funcione.</span></li>
+          <li data-s="4"><span class="n">4</span><span>Pega tu código abajo y compílalo para derrotar al robot.</span></li>
+        </ol>
+        <div class="panel video" id="video">
+          <div class="label">Paso 1 · Video guía</div>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:8px">Paso 2 · Código para copiar</div>
+          <div class="codebox locked" id="codebox">
+            <div class="codebar"><span class="fn">main.py</span><button class="copy" id="b-copy" disabled>🔒 Bloqueado</button></div>
+            <pre id="code-view" tabindex="0"></pre>
+            <div class="lock" id="lock">
+              <div class="ico">🔒</div>
+              <p>Mira el video para desbloquear el código</p>
+              <div class="meter"><i id="lock-bar"></i></div>
+              <small id="lock-msg">Presiona ▶ en el video del Paso 1 para empezar.</small>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:8px">Paso 4 · Pega aquí tu código de VS Code</div>
+          <textarea id="paste" spellcheck="false" placeholder="Pega aquí el código que escribiste y ejecutaste en Visual Studio Code…"></textarea>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+            <button class="btn gold" id="b-run">Compilar y atacar</button>
+          </div>
+        </div>
+        <div class="term" id="term" aria-live="polite"><span class="dim">TERMINAL · esperando tu código…</span></div>
+        <div id="fallback" hidden class="panel" style="padding:14px;display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+      <div class="col">
+        <div class="panel boss" id="boss">
+          <h3>ROBOT MALVADO</h3>
+          <div class="hp"><i id="hp"></i></div>
+          <img src="assets/robot.jpg" alt="Robot malvado">
+        </div>
+        <div class="figs" id="figs"></div>
+        <div class="panel prog"><div class="nina"></div><div style="flex:1"><div class="label">Tu progreso</div><div class="bar"><i id="pbar"></i></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CERTIFICADO -->
+  <section class="screen menu-bg pad" id="s-cert" hidden>
+    <canvas id="confetti"></canvas>
+    <div id="cert-intro" style="display:flex;flex-direction:column;align-items:center;gap:16px;margin-top:auto;margin-bottom:auto">
+      <div class="big">¡MISIÓN COMPLETADA!</div>
+      <div class="label" style="font-size:1rem">Certificado desbloqueado 🎓</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <button class="btn gold" id="b-seecert">Ver certificado</button>
+        <button class="btn" id="b-home2">Volver al inicio</button>
+      </div>
+    </div>
+    <div id="cert-view" hidden style="display:flex;flex-direction:column;align-items:center;gap:16px;width:100%">
+      <div class="cert" id="cert">
+        <div class="k">CERTIFICADO DE LOGRO</div>
+        <div class="logo" style="font-size:clamp(1.6rem,5vw,3rem)">XYLA</div>
+        <p>Se otorga el presente certificado a</p>
+        <div class="nm" id="c-name"></div>
+        <p>por completar con éxito los retos de Operaciones Aritméticas, Álgebra, Geometría y Programación.</p>
+        <div class="row"><span>Fecha: <b id="c-date"></b></span><span>Robot guía de XYLA</span></div>
+        <div class="seal">XYLA<br>★★★</div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <button class="btn gold" id="b-dl">Descargar certificado</button>
+        <button class="btn" id="b-home3">Volver al inicio</button>
+      </div>
+      <div class="label" id="dl-note" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <button class="fs-btn" id="b-fs" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
+
+  <!-- DIÁLOGO -->
+  <div id="dialog" class="panel" hidden role="dialog" aria-live="polite">
+    <div id="dlg-av"></div>
+    <div class="dlg-main"><div class="who-tag" id="dlg-who">Robot</div><p id="dlg-text"></p></div>
+    <button class="btn" id="dlg-next">▸</button>
+  </div>
+
+  <!-- PREGUNTA -->
+  <div class="modal" id="qmodal" hidden></div>
+  <div id="portal-ov" hidden>
+    <canvas id="portal-cv"></canvas>
+    <div class="pov-ui"><div class="big" id="pov-title" style="color:var(--glow);text-shadow:0 0 22px rgba(63,214,255,.7)"></div><button class="btn gold" id="pov-go">Entrar al portal</button></div>
+  </div>
+  <div class="fade" id="fade"></div>
+</div>
+
+<script type="text/x-python" id="py-src">
+# XYLA - Calculadora de áreas
+# Copia este código en Visual Studio Code, guárdalo como main.py y ejecútalo.
+
+def calcular_area(figura, *datos):
+    if figura == "cuadrado":
+        lado = datos[0]
+        return lado ** 2
+    elif figura == "rectangulo":
+        base, altura = datos
+        return base * altura
+    elif figura == "triangulo":
+        base, altura = datos
+        return (base * altura) / 2
+    elif figura == "circulo":
+        radio = datos[0]
+        return 3.1416 * (radio ** 2)
+    elif figura == "trapecio":
+        base_mayor, base_menor, altura = datos
+        return ((base_mayor + base_menor) * altura) / 2
+    elif figura == "rombo":
+        diagonal1, diagonal2 = datos
+        return (diagonal1 * diagonal2) / 2
+    elif figura == "paralelogramo":
+        base, altura = datos
+        return base * altura
+    else:
+        return "Figura no válida"
+
+
+def menu():
+    figuras = ["cuadrado", "rectangulo", "triangulo", "circulo",
+               "trapecio", "rombo", "paralelogramo"]
+    print("Calculadora de áreas")
+    print("Selecciona una figura:")
+    for numero, nombre in enumerate(figuras, start=1):
+        print(str(numero) + ". " + nombre.capitalize())
+
+    opcion = int(input("Opción: "))
+    figura = figuras[opcion - 1]
+
+    if figura == "cuadrado":
+        datos = [float(input("Lado: "))]
+    elif figura == "circulo":
+        datos = [float(input("Radio: "))]
+    elif figura == "trapecio":
+        datos = [float(input("Base mayor: ")),
+                 float(input("Base menor: ")),
+                 float(input("Altura: "))]
+    elif figura == "rombo":
+        datos = [float(input("Diagonal mayor: ")),
+                 float(input("Diagonal menor: "))]
+    else:
+        datos = [float(input("Base: ")), float(input("Altura: "))]
+
+    area = calcular_area(figura, *datos)
+    print("El área del " + figura + " es: " + str(area))
+
+
+if __name__ == "__main__":
+    menu()
+</script>
+<script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js" defer></script>
+<script>
+"use strict";
+const LEVELS = {
+arit:[
+ {img:"arit1",fx:"space",blk:[[420,458,22],[1095,1131,14],[1131,1167,28]],plats:[[0,622,135],[1065,1516,137]],bridges:[[622,1065,136]],spawn:60,portal:{x:1235,y:116,open:1},gems:[[380,80],[840,85],[980,80]]},
+ {img:"arit2_bg",fx:"lava",plats:[[15,175,100],[375,497,104],[550,663,84],[770,895,102],[942,1125,81]],spawn:60,box:{spr:"arit2_box",x:1030},exit:[1125,1516,81],portal:{x:1450,y:75},gems:[[275,45],[525,30],[716,35],[920,30]]},
+ {img:"arit3_bg",fx:"space",plats:[[138,257,112],[1200,1516,80]],spawn:190,
+  movers:[{spr:"arit3_p2",walk:[335,437,120],ax:50,T:3.2},{spr:"arit3_p3",walk:[482,628,91],ay:26,T:2.6},{spr:"arit3_p4",walk:[670,773,80],ay:24,T:2.2,ph:1.5},{spr:"arit3_p5",walk:[823,945,51],ax:100,T:3.6}],
+  box:{spr:"arit3_box",x:1325},portal:{x:1460,y:70},gems:[[296,70],[555,35],[722,25],[1080,15]]},
+ {img:"arit4_bg",fx:"space",fly:true,spawn:40,spawnY:75,
+  // Obstáculos repartidos con espacio parejo (~150px entre centros) y alternando arriba/abajo
+  // para que siempre quede un carril libre y predecible en vez de un muro de asteroides.
+  obst:[{spr:"arit4_o0",c:[320,60,30],ay:14,T:3,rot:.4},{spr:"arit4_o3",c:[470,98,22],ay:14,T:2.4,rot:2},{spr:"arit4_o2",c:[620,60,28],ay:14,T:2.8,rot:.6},{spr:"arit4_o4",c:[770,98,24],ay:14,T:2.2,rot:-2},{spr:"arit4_o1",c:[920,60,28],ay:14,T:2.6,rot:-.5},{spr:"arit4_o5",c:[1070,92,17],ay:12,T:1.8,rot:2.5}],
+  land:1245,plats:[[1245,1400,101]],box:{spr:"arit4_box",x:1332},exit:[1400,1516,101],portal:{x:1465,y:93},gems:[[395,75],[695,40],[995,70]]},
+ {img:"arit5",fx:"space",blk:[[300,336,24],[440,478,18],[478,516,36],[1040,1078,28]],plats:[[0,1516,120]],spawn:60,goal:1120,portal:{x:1290,y:115},gems:[[400,70],[700,70],[1000,70]]}],
+alg:[
+ {img:"alg1",fx:"cave",blk:[[300,338,24],[560,596,16],[596,632,32],[820,858,26],[1130,1166,14],[1166,1202,28]],plats:[[0,1580,160]],spawn:60,portal:{x:1298,y:156,open:1},gems:[[450,110],[800,110],[1050,110]]},
+ {img:"alg2_bg",fx:"water",plats:[[65,230,107],[363,493,102],[605,740,105],[910,1070,102],[1187,1340,95]],spawn:110,box:{spr:"alg2_box",x:1000},star:{spr:"alg2_star",x:1262},exit:[1340,1580,95],portal:{x:1510,y:90},gems:[[296,50],[550,45],[825,50]]},
+ {img:"alg3_bg",fx:"cave",plats:[[87,297,103],[1300,1580,90]],spawn:130,
+  movers:[{spr:"alg3_p2",walk:[422,620,108],ax:60,T:3.4},{spr:"alg3_p3",walk:[745,930,101],ay:28,T:2.8},{spr:"alg3_p4",walk:[1033,1205,85],ax:55,T:3,ph:1}],
+  box:{spr:"alg3_box",x:1445},portal:{x:1535,y:83},gems:[[360,45],[682,40],[985,35]]},
+ {img:"alg4_bg",fx:"cave",blk:[[450,488,24],[1000,1038,28]],plats:[[0,1580,137]],spawn:60,box:{x:560,hidden:1},cups:{slots:[662,770,878],y:112},portal:{x:1500,y:135},gems:[[300,95],[1150,95],[1320,95]]},
+ {img:"alg5",fx:"cave",blk:[[300,336,24],[420,458,18],[458,496,36],[1100,1138,28]],plats:[[0,1580,145]],spawn:60,goal:1230,portal:{x:1390,y:140},gems:[[400,90],[750,90],[1050,90]]}]
+};
+/* ---------- Niveles más largos y difíciles ----------
+   Cada nivel de plataformas repite una sección "ida - espejo - ida": el espejo hace que los cortes del
+   fondo sean continuos, sin costuras. Se duplican plataformas, gemas, plataformas móviles, asteroides
+   y cristales peligrosos; todo lo que está después de la sección se recorre. Las copias son más rápidas. */
+const LEVEL_EXT = {
+  arit: { 1: [285, 716], 2: [649, 1020], 3: [395, 845], 4: [560, 1000] },
+  alg:  { 1: [297, 825], 2: [712, 1280], 3: [165, 400], 4: [560, 1050] }
+};
+// Cristales peligrosos en el piso: [x0, x1] (opcional: amplitud de patrulla, periodo)
+const LEVEL_HZ = {
+  arit: { 4: [[640, 668], [790, 822, 34, 2.6], [920, 946]] },
+  alg:  { 3: [[225, 253], [305, 337, 28, 2.4]], 4: [[650, 678], [800, 832, 36, 2.6], [950, 978]] }
+};
+function extendLevel(L, xs, xe, hz) {
+  const d = xe - xs, W0 = L.img.indexOf("alg") === 0 ? 1580 : 1516, D2 = 2 * d, mir = x => 2 * xe - x, E = [];
+  L.ext = { xs, xe, d }; L.rowW = W0 + D2;
+  const part = x => x < xs ? 0 : x < xe ? 1 : 2;
+  const items = (arr, x, mk, mirk, cpk) => { const out = []; for (const it of arr || []) { const k = part(x(it)); if (k === 0) out.push(it); else if (k === 1) { out.push(it, mirk(it), cpk(it)) } else out.push(cpk(it)) } return out };
+  // plataformas: se parten en cabeza / sección / cola y luego se funden las que se tocan a la misma altura
+  const segs = [];
+  for (const [a, b, y] of L.plats) {
+    if (a < xs) segs.push([a, Math.min(b, xs), y, 0]);
+    const sa = Math.max(a, xs), sb = Math.min(b, xe); if (sa < sb) segs.push([sa, sb, y, 1]);
+    if (b > xe) segs.push([Math.max(a, xe), b, y, 2]);
+  }
+  const P = [];
+  for (const [a, b, y, k] of segs) { if (k === 0) P.push([a, b, y]); else if (k === 1) { P.push([a, b, y], [mir(b), mir(a), y], [a + D2, b + D2, y]) } else P.push([a + D2, b + D2, y]) }
+  P.sort((p, q) => p[0] - q[0]);
+  L.plats = P.reduce((o, p) => { const l = o[o.length - 1]; if (l && p[0] <= l[1] + .5 && Math.abs(p[2] - l[2]) <= 3) l[1] = Math.max(l[1], p[1]); else o.push(p.slice()); return o }, []);
+  if (L.movers) L.movers = items(L.movers, m => (m.walk[0] + m.walk[1]) / 2, 0,
+    m => ({ ...m, walk: [mir(m.walk[1]), mir(m.walk[0]), m.walk[2]], mir: true, mx: 2 * xe, T: m.T * .85 }),
+    m => ({ ...m, walk: [m.walk[0] + D2, m.walk[1] + D2, m.walk[2]], sx: (m.sx || 0) + D2, T: part((m.walk[0] + m.walk[1]) / 2) === 1 ? m.T * .85 : m.T }));
+  if (L.gems) L.gems = items(L.gems, g => g[0], 0, g => [mir(g[0]), g[1]], g => [g[0] + D2, g[1]]);
+  if (L.blk) L.blk = items(L.blk, b => (b[0] + b[1]) / 2, 0, b => [mir(b[1]), mir(b[0]), b[2]], b => [b[0] + D2, b[1] + D2, b[2]]);
+  if (L.obst) L.obst = items(L.obst, o => o.c[0], 0,
+    o => ({ ...o, c: [mir(o.c[0]), o.c[1], o.c[2]], T: o.T * .85, ay: (o.ay || 0) + 4, at: !o.at }),
+    o => ({ ...o, c: [o.c[0] + D2, o.c[1], o.c[2]], T: part(o.c[0]) === 1 ? o.T * .85 : o.T, ay: part(o.c[0]) === 1 ? (o.ay || 0) + 4 : o.ay }));
+  for (const k of ["box", "star"]) if (L[k] && part(L[k].x) === 2) L[k] = { ...L[k], x: L[k].x + D2, sx: (L[k].sx || 0) + D2 };
+  if (L.portal) L.portal = { ...L.portal, x: L.portal.x + D2 };
+  if (L.exit) L.exit = [L.exit[0] + D2, L.exit[1] + D2, L.exit[2]];
+  if (L.goal) L.goal += D2; if (L.land) L.land += D2;
+  if (L.cups) L.cups = { ...L.cups, slots: L.cups.slots.map(x => x + D2) };
+  if (hz) L.hz = items(hz, h => (h[0] + h[1]) / 2, 0, h => [mir(h[1]), mir(h[0]), h[2], h[3]], h => [h[0] + D2, h[1] + D2, h[2], h[3]])
+    .map(h => { const cx = (h[0] + h[1]) / 2, p = L.plats.find(q => cx >= q[0] && cx <= q[1]); return p ? [h[0], h[1], p[2], h[2] || 0, h[3] || 2.4] : null }).filter(Boolean);
+}
+for (const area in LEVEL_EXT) for (const i in LEVEL_EXT[area]) extendLevel(LEVELS[area][i], LEVEL_EXT[area][i][0], LEVEL_EXT[area][i][1], (LEVEL_HZ[area] || {})[i]);
+/* Gemas alcanzables sin arriesgar vida. Antes algunas flotaban sobre el vacío a una altura que sólo se alcanza con un salto
+   corto, y se caía a la lava. Ahora cada gema queda: (1) sobre una plataforma, a ~60 de altura (salto parado); (2) sobre el
+   centro de una plataforma móvil cercana; o (3) en un hueco, en el punto más alto del salto largo, que se agarra con un
+   salto completo y se aterriza del otro lado. */
+function fixGems(L) {
+  if (!L.gems || L.fly) return;
+  const solids = L.plats.concat(L.bridges || []), mv = L.movers || [], hit = (x, q, m) => x >= q[0] - m && x <= q[1] + m;
+  L.gems = L.gems.map(([gx, gy]) => {
+    const on = solids.find(q => hit(gx, q, 8));
+    if (on) return [gx, Math.max(gy, on[2] - 62)];
+    const cx = m => (m.walk[0] + m.walk[1]) / 2, m = mv.slice().sort((a, b) => Math.abs(cx(a) - gx) - Math.abs(cx(b) - gx))[0];
+    if (m) return [cx(m), m.walk[2] - (m.ay || 0) - 45]; // niveles con móviles: la gema va sobre la móvil más cercana
+    const A = solids.filter(q => q[1] <= gx).sort((a, b) => b[1] - a[1])[0], B = solids.filter(q => q[0] >= gx).sort((a, b) => a[0] - b[0])[0];
+    if (A && B) {
+      const w = B[0] - A[1], y = Math.min(A[2], B[2]);
+      if (w >= 110) return [(A[1] + B[0]) / 2, Math.max(12, y - Math.min(96, 40 + w * .3))];
+      return [gx < (A[1] + B[0]) / 2 ? A[1] - 22 : B[0] + 22, y - 55];
+    }
+    const q = A || B; return q ? [Math.max(q[0] + 20, Math.min(q[1] - 20, gx)), q[2] - 55] : [gx, gy];
+  });
+  L.gems = L.gems.filter((g, i, arr) => arr.findIndex(h => Math.abs(h[0] - g[0]) < 36 && Math.abs(h[1] - g[1]) < 30) === i); // sin gemas encimadas
+}
+/* Bloques sólidos (escalones y cajas): se pueden escalar, se choca de lado con ellos y sus cimas son plataformas.
+   [x0, x1, alto] -> [x0, x1, y de la cima, y del piso]. */
+for (const area in LEVELS) LEVELS[area].forEach(L => { L.blocks = (L.blk || []).map(([a, b, h]) => { const cx = (a + b) / 2, pl = L.plats.find(q => cx >= q[0] && cx <= q[1]) || (L.bridges || []).find(q => cx >= q[0] && cx <= q[1]); const gy = pl ? pl[2] : 130; return [a, b, gy - h, gy] }) });
+// Ajuste fino de la última plataforma móvil: se acerca a la salida para que el último salto no dependa de la suerte.
+{ const L = LEVELS.arit[2], m = L.movers.slice().sort((x, y) => x.walk[0] - y.walk[0]).pop(), n = 75; m.walk = [m.walk[0] + n, m.walk[1] + n, m.walk[2]]; m.sx = (m.sx || 0) + n }
+for (const area in LEVELS) LEVELS[area].forEach(fixGems);
+/* Imagen del nivel extendido: ida + espejo + ida + resto, en un solo lienzo con el mismo formato que la imagen original */
+function levelImg(L) {
+  const base = img(L.img); if (!L.ext) return base; if (L._im) return L._im;
+  if (!base.complete || !base.naturalWidth) return base;
+  const { xs, xe, d } = L.ext, k = RES, H = base.naturalHeight, W0 = base.naturalWidth;
+  const c = document.createElement("canvas"); c.width = W0 + 2 * d * k; c.height = H; const x = c.getContext("2d");
+  x.drawImage(base, 0, 0, xe * k, H, 0, 0, xe * k, H);
+  x.save(); x.translate(2 * xe * k, 0); x.scale(-1, 1); x.drawImage(base, xs * k, 0, d * k, H, xs * k, 0, d * k, H); x.restore();
+  x.drawImage(base, xs * k, 0, d * k, H, (xe + d) * k, 0, d * k, H);
+  x.drawImage(base, xe * k, 0, W0 - xe * k, H, (xe + 2 * d) * k, 0, W0 - xe * k, H);
+  c.naturalWidth = c.width; c.naturalHeight = c.height; c.complete = true; L._im = c; return c;
+}
+const OBJ = {"arit3":{"p2":[327,100,118,50],"p3":[474,74,162,66],"p4":[662,63,119,61],"p5":[815,33,138,67],"box":[1286,14,80,72]},"alg4":{},"alg2":{"box":[960,18,82,70],"star":[1226,16,76,70]},"arit2":{"box":[992,18,76,68]},"arit4":{"o0":[217,45,80,80],"o1":[805,10,76,76],"o2":[685,62,76,71],"o3":[593,59,64,64],"o4":[896,61,68,68],"o5":[1068,16,54,54],"o6":[1147,40,76,76],"box":[1300,34,66,61]},"alg3":{"p2":[414,84,214,74],"p3":[737,82,201,76],"p4":[1025,66,188,92],"box":[1403,22,83,68]}};
+const VIDEO_ID = "1hnNrXLY1UwU5xw31cI8tAzA5a-xdzBZA";
+const $ = s => document.querySelector(s);
+const framed = (() => { try { return window.self !== window.top } catch (e) { return true } })();
+
+/* ---------- Símbolos matemáticos de fondo (pantallas de menú) ---------- */
+(() => {
+  const syms = [["+", 6, 3.6, 16, -2], ["−", 18, 2.4, 13, -9], ["×", 30, 4.2, 19, -4], ["÷", 42, 2.8, 15, -11],
+    ["=", 54, 3.2, 17, -1], ["π", 66, 2.6, 14, -7], ["√", 76, 3.8, 18, -13], ["∞", 86, 2.4, 12, -5], ["%", 94, 3, 16, -8]];
+  const html = `<div class="mathfx" aria-hidden="true">${syms.map(([s, left, size, dur, delay]) =>
+    `<span style="left:${left}%;font-size:${size}rem;animation-duration:${dur}s;animation-delay:${delay}s">${s}</span>`).join("")}</div>`;
+  document.querySelectorAll(".menu-bg").forEach(el => el.insertAdjacentHTML("afterbegin", html));
+  addEventListener("pointermove", e => {
+    if (e.pointerType && e.pointerType !== "mouse") return;
+    const dx = (e.clientX / innerWidth - .5) * 16, dy = (e.clientY / innerHeight - .5) * 16;
+    document.querySelectorAll(".mathfx").forEach(el => el.style.transform = `translate(${dx}px,${dy}px)`);
+  });
+})();
+
+/* ---------- Audio sintetizado (sin archivos: osciladores de Web Audio) ---------- */
+let actx = null;
+function audioCtx() {
+  if (actx === null) { try { actx = new (window.AudioContext || window.webkitAudioContext)() } catch (e) { actx = false } }
+  if (actx && actx.state === "suspended") actx.resume();
+  return actx;
+}
+function tone(freq, dur, type, vol, delay) {
+  const a = audioCtx(); if (!a) return;
+  const t0 = a.currentTime + (delay || 0);
+  const osc = a.createOscillator(), g = a.createGain();
+  osc.type = type || "sine"; osc.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol || .18, t0 + .012); g.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+  osc.connect(g); g.connect(a.destination); osc.start(t0); osc.stop(t0 + dur + .03);
+}
+function sweep(f0, f1, dur, vol) {
+  const a = audioCtx(); if (!a) return;
+  const t0 = a.currentTime, osc = a.createOscillator(), g = a.createGain();
+  osc.type = "sine"; osc.frequency.setValueAtTime(f0, t0); osc.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+  g.gain.setValueAtTime(vol || .15, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+  osc.connect(g); g.connect(a.destination); osc.start(t0); osc.stop(t0 + dur + .03);
+}
+const sfxJump = () => { tone(520, .1, "square", .1); tone(780, .07, "square", .07, .035) };
+const sfxLand = () => tone(130, .09, "sine", .14);
+const sfxGem = () => { tone(900, .07, "sine", .09); tone(1300, .09, "sine", .08, .04) };
+const sfxOk = () => { tone(523, .1, "triangle", .14); tone(659, .1, "triangle", .14, .09); tone(784, .18, "triangle", .14, .18) };
+const sfxWrong = () => tone(190, .2, "sawtooth", .1);
+const sfxLife = () => { tone(300, .14, "sawtooth", .1); tone(220, .18, "sawtooth", .09, .1) };
+const sfxWarp = () => sweep(280, 1200, .4, .13);
+const sfxStar = () => { sfxOk(); tone(988, .2, "triangle", .1, .28) };
+const sfxHit = () => tone(220, .08, "square", .1);
+const sfxWin = () => { tone(523, .12, "triangle", .14); tone(659, .12, "triangle", .14, .11); tone(784, .12, "triangle", .14, .22); tone(1046, .3, "triangle", .15, .33) };
+// Click genérico para botones/tarjetas, sutil, para que la interfaz se sienta con respuesta.
+document.addEventListener("click", e => { if (e.target.closest(".btn,.tile,.av,.gcard,.pad-btn")) tone(700, .04, "square", .05) }, true);
+
+
+/* ---------- Robot guía (SVG) ---------- */
+const BOT_SVG = `<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+<defs><radialGradient id="bg1" cx="50%" cy="40%"><stop offset="0" stop-color="#1f3a9e"/><stop offset="1" stop-color="#0b1440"/></radialGradient></defs>
+<line x1="32" y1="4" x2="32" y2="12" stroke="#9ef2ff" stroke-width="3"/><circle cx="32" cy="4" r="3.5" fill="#ffcf4a"/>
+<rect x="8" y="12" width="48" height="40" rx="14" fill="url(#bg1)" stroke="#3fd6ff" stroke-width="3"/>
+<rect x="15" y="21" width="34" height="18" rx="9" fill="#050a22" stroke="#3fd6ff" stroke-width="1.5"/>
+<circle cx="25" cy="30" r="4" fill="#9ef2ff"/><circle cx="39" cy="30" r="4" fill="#9ef2ff"/>
+<path d="M25 44 Q32 49 39 44" stroke="#45f5a1" stroke-width="3" fill="none" stroke-linecap="round"/>
+<rect x="2" y="26" width="6" height="12" rx="3" fill="#3fd6ff"/><rect x="56" y="26" width="6" height="12" rx="3" fill="#3fd6ff"/></svg>`;
+
+/* ---------- Almacenamiento (solo en este navegador) ---------- */
+const mem = { users: {}, session: null };
+function load() { try { const s = JSON.parse(localStorage.getItem("xyla") || "null"); if (s && s.users) Object.assign(mem, s) } catch (e) {} }
+function save() { try { localStorage.setItem("xyla", JSON.stringify(mem)) } catch (e) {} }
+async function hash(t) {
+  try { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("xyla:" + t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("") }
+  catch (e) { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) | 0; return "h" + h }
+}
+const me = () => mem.session && mem.users[mem.session];
+function done(k) { const u = me(); if (u) { u.progress[k] = true; if (k === "prog" && !u.progress.date) u.progress.date = new Date().toISOString(); save() } }
+
+/* ---------- Pantallas ---------- */
+function show(id) { document.querySelectorAll(".screen").forEach(s => s.hidden = s.id !== id); running = id === "s-game" }
+// Tema de color por área: se aplica en #app para que también tiña diálogos y modales (viven fuera de cada .screen).
+function setTheme(name) { $("#app").classList.remove("theme-alg", "theme-geo", "theme-prog"); if (name) $("#app").classList.add("theme-" + name) }
+const fade = $("#fade");
+async function transition(fn) { fade.classList.add("on"); await wait(350); await fn(); await wait(60); fade.classList.remove("on") }
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- Diálogo ---------- */
+const dlg = $("#dialog"), dlgText = $("#dlg-text");
+let dlgResolve = null, dlgLines = [], dlgI = 0;
+function say(lines, who = "robot") {
+  return new Promise(res => {
+    dlgLines = [].concat(lines); dlgI = 0; dlgResolve = res;
+    dlg.classList.toggle("guardian", who === "guardian");
+    $("#dlg-av").innerHTML = who === "guardian" ? '<img src="assets/robot.jpg" alt="">' : BOT_SVG;
+    $("#dlg-who").textContent = who === "guardian" ? "Guardián matemático" : "Robot XYLA";
+    dlg.hidden = false; dlgText.textContent = dlgLines[0];
+    $("#dlg-next").textContent = dlgLines.length > 1 ? "▸" : "OK"; $("#dlg-next").focus({ preventScroll: true });
+  });
+}
+function dlgAdvance() {
+  if (dlg.hidden) return; dlgI++;
+  if (dlgI >= dlgLines.length) { dlg.hidden = true; const r = dlgResolve; dlgResolve = null; r && r(); return }
+  dlgText.textContent = dlgLines[dlgI]; $("#dlg-next").textContent = dlgI === dlgLines.length - 1 ? "OK" : "▸";
+}
+dlg.addEventListener("click", dlgAdvance);
+
+/* ---------- Calculadora ---------- */
+function calcHTML() {
+  const k = ["7","8","9","÷","4","5","6","×","1","2","3","−","0",".","C","+","(",")","⌫","="];
+  return `<div class="calc"><div class="label" style="margin-bottom:6px">Calculadora</div><div class="scr" id="cscr">0</div><div class="keys">${k.map(x => `<button type="button" class="${"÷×−+".includes(x) ? "op" : x === "=" ? "eq" : ""}" data-c="${x}">${x}</button>`).join("")}</div></div>`;
+}
+function wireCalc(root) {
+  let e = ""; const scr = root.querySelector("#cscr");
+  root.querySelectorAll("[data-c]").forEach(b => b.onclick = () => {
+    const c = b.dataset.c;
+    if (c === "C") e = ""; else if (c === "⌫") e = e.slice(0, -1);
+    else if (c === "=") { try { const v = Function('"use strict";return (' + e.replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-") + ")")(); e = String(Math.round(v * 1e6) / 1e6) } catch (x) { e = "Error" } }
+    else { if (e === "Error") e = ""; e += c }
+    scr.textContent = e || "0";
+  });
+}
+
+/* ---------- Preguntas ---------- */
+const qm = $("#qmodal");
+function ask(q) {
+  return new Promise(res => {
+    const letters = ["A", "B", "C"];
+    qm.innerHTML = `<div class="panel qbox"><div class="qgrid"><div style="display:flex;flex-direction:column;gap:14px">
+      <div class="qhead"><div class="qbadge">?</div><div><div class="label">${q.tag || "Reto"}</div><div class="qtext">${q.text}</div></div></div>
+      ${G ? `<div class="label" id="q-lives" style="text-align:center;letter-spacing:normal"></div>` : ""}
+      ${q.expr ? `<div class="qexpr">${q.expr}</div>` : ""}
+      <div class="opts">${q.opts.map((o, i) => `<button class="opt ${q.cups ? "cup" : ""}" data-i="${i}"><b>${letters[i]}</b>${o}</button>`).join("")}</div>
+      <div class="feedback" id="fb" aria-live="polite">${q.tip || ""}</div>
+      <div class="qfoot"><button class="btn" id="q-go" hidden>Continuar</button></div></div>
+      ${q.calc ? calcHTML() : ""}</div></div>`;
+    if (q.calc) { qm.querySelector(".qgrid").style.gridTemplateColumns = ""; wireCalc(qm) } else qm.querySelector(".qgrid").style.gridTemplateColumns = "1fr";
+    qm.hidden = false;
+    const fb = qm.querySelector("#fb"), qLives = qm.querySelector("#q-lives");
+    if (qLives) qLives.textContent = hearts(G.lives);
+    qm.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+      const i = +b.dataset.i;
+      if (i === q.ok) {
+        b.classList.add("right"); qm.querySelectorAll(".opt").forEach(x => x.disabled = true);
+        fb.className = "feedback ok"; fb.textContent = q.right.join(" "); freeze(80); sfxOk();
+        const go = qm.querySelector("#q-go"); go.hidden = false; go.focus();
+        go.onclick = () => { qm.hidden = true; res(true) };
+      } else {
+        b.classList.remove("wrong"); void b.offsetWidth; b.classList.add("wrong"); b.disabled = true;
+        if (G) {
+          const over = loseLife("¡Respuesta incorrecta!");
+          if (over) {
+            fb.className = "feedback no"; fb.textContent = "Se te acabaron las vidas. Volvemos al inicio del recorrido.";
+            qm.querySelectorAll(".opt").forEach(x => x.disabled = true);
+            setTimeout(() => { qm.hidden = true; gameOver() }, 1500);
+            return;
+          }
+          qLives.textContent = hearts(G.lives);
+        } else sfxWrong();
+        fb.className = "feedback no"; fb.textContent = q.wrong.join(" ");
+      }
+    });
+  });
+}
+
+/* ---------- Guion ---------- */
+const AREA = {
+  arit: {
+    name: "Operaciones Aritméticas",
+    intro: ["¡Bienvenida a Operaciones Aritméticas!", "Camina hasta el portal para entrar al nivel 1. Evita caer."],
+    levels: [
+      { say: ["Este es el nivel 1.", "Vamos a comenzar con operaciones aritméticas básicas.", "Primero veremos un ejemplo.", "Si tenemos 7 + 3, el resultado es 10.", "Ahora es tu turno. Salta por las plataformas hasta la caja ?"],
+        q: { tag: "Nivel 1 · Operaciones básicas", right: ["¡Correcto! Puedes continuar."], wrong: ["No es esa respuesta. Inténtalo otra vez.", "Vuelve a sumar con cuidado."],
+          variants: [
+            { text: "¿Cuánto es 24 + 18?", opts: ["40", "42", "44"], ok: 1 },
+            { text: "¿Cuánto es 35 + 27?", opts: ["60", "62", "64"], ok: 1 },
+            { text: "¿Cuánto es 46 + 19?", opts: ["63", "65", "67"], ok: 1 },
+            { text: "¿Cuánto es 58 + 16?", opts: ["72", "74", "76"], ok: 1 }
+          ] },
+        end: ["¡Nivel 1 completado!", "Ahora vamos con el siguiente nivel."] },
+      { say: ["Llegaste al nivel 2.", "Ahora las operaciones son un poco más complicadas.", "Cuando tenemos varias operaciones juntas, debemos seguir un orden.", "Primero resolvemos las multiplicaciones y divisiones, y después las sumas y restas.", "Por ejemplo: 5 + 2 × 3.", "Primero hacemos 2 × 3, que es 6.", "Después sumamos 5 y obtenemos 11.", "Ahora prueba tú."],
+        q: { tag: "Nivel 2 · Jerarquía de operaciones", text: "Resuelve:", right: ["¡Muy bien!", "Puedes seguir."], wrong: ["No es esa.", "Recuerda: primero multiplicaciones y divisiones, después sumas y restas.", "Inténtalo otra vez."],
+          variants: [
+            { expr: "10 + 6 ÷ 2", opts: ["8", "13", "16"], ok: 1 },
+            { expr: "8 + 12 ÷ 4", opts: ["9", "11", "20"], ok: 1 },
+            { expr: "20 − 4 × 3", opts: ["8", "48", "16"], ok: 0 },
+            { expr: "15 + 9 ÷ 3", opts: ["8", "18", "24"], ok: 1 }
+          ] },
+        end: ["¡Nivel 2 completado!", "Solo falta un nivel para terminar Operaciones."] },
+      { say: ["Este es el último nivel de Operaciones Aritméticas.", "Ahora tendrás que volar esquivando los asteroides. Usa ↑ y ↓.", "Ahora tendrás que usar lo que aprendiste en los niveles anteriores.", "Lee bien la operación antes de responder.", "Cuando hay paréntesis, primero resolvemos lo que está dentro.", "Después continuamos con las demás operaciones."],
+        q: { tag: "Nivel 3 · Reto de operaciones", text: "Resuelve:", right: ["¡Correcto!", "Terminaste los tres niveles de Operaciones Aritméticas."], wrong: ["Casi.", "Recuerda resolver primero lo que está dentro del paréntesis.", "Inténtalo nuevamente."],
+          variants: [
+            { expr: "(12 + 8) × 3 − 10", opts: ["40", "50", "60"], ok: 1 },
+            { expr: "(9 + 3) × 4 − 8", opts: ["32", "40", "48"], ok: 1 },
+            { expr: "(15 − 5) × 2 + 6", opts: ["16", "26", "36"], ok: 1 },
+            { expr: "(6 + 4) × 5 − 20", opts: ["20", "30", "40"], ok: 1 }
+          ] },
+        end: ["¡Vamos hacia la meta!"] }
+    ],
+    meta: ["¡Llegamos a la meta!", "Completaste Operaciones Aritméticas.", "Ahora podemos continuar con Álgebra."],
+    next: "alg", nextLabel: "Continuar"
+  },
+  alg: {
+    name: "Álgebra",
+    intro: ["Ahora empezamos con Álgebra.", "Camina hasta el portal para entrar al nivel 1."],
+    levels: [
+      { say: ["Aquí vamos a trabajar con números y letras.", "Una letra puede representar un número que todavía no conocemos.", "Por ejemplo, si tenemos x + 5 = 10, necesitamos descubrir cuánto vale x.", "En este caso, x vale 5.", "Ahora te toca. Llega a la caja ? (y atrapa la estrella)."],
+        q: { tag: "Nivel 1 · Incógnitas", right: ["¡Correcto! Encontraste el valor de x.", "Puedes continuar."], wrong: ["No es esa.", "Busca el número que, sumado al otro, dé el resultado.", "Inténtalo nuevamente."],
+          variants: [
+            { text: "Si x + 7 = 15, ¿cuánto vale x?", opts: ["6", "7", "8"], ok: 2 },
+            { text: "Si x + 9 = 14, ¿cuánto vale x?", opts: ["4", "5", "6"], ok: 1 },
+            { text: "Si x + 12 = 20, ¿cuánto vale x?", opts: ["6", "8", "10"], ok: 1 },
+            { text: "Si x + 15 = 22, ¿cuánto vale x?", opts: ["5", "7", "9"], ok: 1 }
+          ] },
+        end: ["¡Nivel 1 completado!", "Vamos por el siguiente."] },
+      { say: ["Llegaste al nivel 2.", "Ahora vamos a resolver ecuaciones.", "La idea es dejar la x sola para descubrir cuánto vale.", "Si tenemos 2x = 10, dividimos entre 2.", "Entonces x = 5.", "Ahora prueba tú."],
+        q: { tag: "Nivel 2 · Ecuaciones", text: "Resuelve:", right: ["¡Muy bien!", "Puedes continuar."], wrong: ["No es esa.", "Primero resta o suma el número suelto, y después divide.", "Inténtalo otra vez."],
+          variants: [
+            { expr: "3x + 6 = 18", opts: ["x = 3", "x = 4", "x = 5"], ok: 1 },
+            { expr: "2x + 5 = 17", opts: ["x = 5", "x = 6", "x = 7"], ok: 1 },
+            { expr: "4x − 3 = 9", opts: ["x = 2", "x = 3", "x = 4"], ok: 1 },
+            { expr: "5x + 4 = 24", opts: ["x = 3", "x = 4", "x = 6"], ok: 1 }
+          ] },
+        end: ["¡Nivel 2 completado!", "Ya casi terminamos Álgebra."] },
+      { say: ["Llegaste al último nivel de Álgebra.", "Este es un poco más difícil, así que piensa bien antes de responder.", "La respuesta está escondida bajo uno de los vasos."],
+        q: { tag: "Nivel 3 · Vasos y adivinanza", text: "Elige el vaso correcto:", cups: true, right: ["¡Correcto!", "Terminaste todos los niveles de Álgebra.", "Ya solo falta una última prueba."], wrong: ["Revisa primero lo que está dentro del paréntesis.", "Después busca el valor de x.", "Inténtalo nuevamente."],
+          variants: [
+            { expr: "2(x + 3) = 14", opts: ["x = 4", "x = 5", "x = 6"], ok: 0 },
+            { expr: "3(x + 2) = 21", opts: ["x = 4", "x = 5", "x = 6"], ok: 1 },
+            { expr: "2(x − 1) = 10", opts: ["x = 5", "x = 6", "x = 7"], ok: 1 },
+            { expr: "4(x + 1) = 20", opts: ["x = 3", "x = 4", "x = 5"], ok: 1 }
+          ] },
+        end: ["¡Vamos hacia la meta!"] }
+    ],
+    meta: ["¡Llegamos a la meta!", "Ya completaste Operaciones Aritméticas y Álgebra.", "Ahora solo falta la última parte.", "El reto de Geometría."],
+    next: "geo", nextLabel: "Ir a Geometría"
+  }
+};
+// Elige al azar una de las variantes de un reto para que no siempre sea el mismo ejercicio.
+function pickQ(q) { return Object.assign({}, q, q.variants[Math.floor(Math.random() * q.variants.length)]) }
+
+/* ---------- Motor de plataformas ---------- */
+const cv = $("#cv"), ctx = cv.getContext("2d");
+const imgs = {};
+const RES = 3; // los escenarios y objetos están guardados a 3× de resolución
+function img(n, dir) { const key = (dir || "") + n; if (!imgs[key]) { const i = new Image(); i.src = `hd/${dir || ""}${n}.${dir ? "png" : "jpg"}`; imgs[key] = i } return imgs[key] }
+const spr = n => img(n, "obj/");
+const sheet = new Image(); sheet.src = "assets/nina.png";
+// ===== Rig de carrera =====
+// El sprite trae 3 frames de correr idénticos, así que la carrera se anima por piezas sobre
+// un ciclo clásico de 10 poses (contacto, amortigua, paso, impulso, vuelo — y lo mismo con la
+// otra pierna): torso recortado del frame 0, brazos y piernas dibujados con los colores del
+// propio sprite, y los tenis recortados del sprite.
+function makeRig(sheet) {
+  const W = 260, H = 420;
+  const cut = (polys, inv) => {
+    const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
+    g.drawImage(sheet, 0, 0, W, H, 0, 0, W, H);
+    g.globalCompositeOperation = inv ? "destination-out" : "destination-in";
+    g.beginPath(); for (const p of polys) { g.moveTo(p[0][0], p[0][1]); for (const q of p) g.lineTo(q[0], q[1]); g.closePath() }
+    g.fill(); return c;
+  };
+  const FA = [[178, 201], [195, 198], [210, 186], [245, 182], [245, 256], [200, 256], [182, 236]];
+  const BA = [[30, 197], [111, 194], [111, 232], [100, 262], [30, 262]];
+  const torso = cut([FA, BA, [[0, 262], [W, 262], [W, H], [0, H]]], true);
+  const shoe = cut([[[186, 386], [200, 379], [214, 371], [255, 368], [255, 420], [186, 420]]], false);
+  const shoeD = document.createElement("canvas"); shoeD.width = W; shoeD.height = H;
+  { const g = shoeD.getContext("2d"); g.drawImage(shoe, 0, 0); g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(14,22,44,.3)"; g.fillRect(0, 0, W, H) }
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(sheet, 0, 0, W, H, 0, 0, W, H);
+  const px = (x, y) => { const d = g.getImageData(x, y, 1, 1).data; return [d[0], d[1], d[2]] };
+  const rgb = (a, m = 1) => `rgb(${a.map(v => Math.round(v * m)).join(",")})`;
+  const sl = px(190, 215), cf = px(80, 232), sk = px(225, 207);
+  return { torso, shoe, shoeD, sleeve: rgb(sl), sleeveD: rgb(sl, .72), cuff: rgb(cf), cuffD: rgb(cf, .75), skin: rgb(sk), skinD: rgb(sk, .85) };
+}
+// [fase, muslo°, rodilla°, pie°] — muslo respecto a la vertical (+ hacia delante), rodilla = flexión, pie respecto a la espinilla (+ punta abajo)
+const RUN_KEYS = [[0, 30, 8, -10], [.1, 12, 36, 0], [.2, -8, 22, 0], [.3, -30, 14, 12], [.4, -38, 50, 22], [.5, -28, 80, 15], [.6, -16, 102, 10], [.7, 14, 108, 0], [.8, 44, 82, -5], [.9, 52, 38, -15]];
+function runPose(t) {
+  t = ((t % 1) + 1) % 1; const KK = RUN_KEYS, n = KK.length, i = Math.floor(t * 10) % n, u = t * 10 - Math.floor(t * 10);
+  const p0 = KK[(i - 1 + n) % n], a = KK[i], b = KK[(i + 1) % n], p3 = KK[(i + 2) % n];
+  const cr = (A, B, C, D) => .5 * (2 * B + (-A + C) * u + (2 * A - 5 * B + 4 * C - D) * u * u + (-A + 3 * B - 3 * C + D) * u * u * u);
+  const R = Math.PI / 180; return [cr(p0[1], a[1], b[1], p3[1]) * R, cr(p0[2], a[2], b[2], p3[2]) * R, cr(p0[3], a[3], b[3], p3[3]) * R];
+}
+function drawRun(ctx, rig, ph) {
+  const L1 = 74, L2 = 70, SH = 35, OL = "#0a0f1a"; // SH: del tobillo a la suela
+  const legs = [ph, ph + .5].map(t => { const [th, kn, ft] = runPose(t), sh = th - kn; const kx = Math.sin(th) * L1, ky = Math.cos(th) * L1; return { th, sh, ft, kx, ky, ax: kx + Math.sin(sh) * L2, ay: ky + Math.cos(sh) * L2 } });
+  const u = ((ph % .5) + .5) % .5, lift = u > .3 && u < .5 ? Math.sin(Math.PI * (u - .3) / .2) * 9 : 0; // fase de vuelo
+  const hy = -(Math.max(legs[0].ay, legs[1].ay) + SH) - lift, hx = 0;
+  const lean = .1 + Math.sin(ph * Math.PI * 4) * .015;
+  const leg = (l, near) => {
+    ctx.save(); ctx.translate(hx, hy); ctx.lineCap = ctx.lineJoin = "round";
+    // primero el tenis y encima la pierna: el bajo del pantalón tapa la unión
+    const gy = -hy - SH - l.ay, flat = Math.max(0, Math.min(1, gy / 22)); // pegado al suelo -> suela plana
+    ctx.save(); ctx.translate(l.ax, l.ay); ctx.rotate((-l.sh + l.ft) * flat); ctx.drawImage(near ? rig.shoe : rig.shoeD, -199, -384); ctx.restore(); // el tenis sigue a la espinilla; al pisar queda plano
+    const path = () => { ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(l.kx, l.ky); ctx.lineTo(l.ax, l.ay - 4) };
+    path(); ctx.strokeStyle = OL; ctx.lineWidth = 32; ctx.stroke();
+    path(); ctx.strokeStyle = near ? "#1f2d45" : "#141d30"; ctx.lineWidth = 26; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(l.kx * .25 + 5, l.ky * .25); ctx.lineTo(l.kx + 4, l.ky - 3); ctx.strokeStyle = near ? "rgba(110,140,190,.32)" : "rgba(80,105,150,.18)"; ctx.lineWidth = 5; ctx.stroke();
+    ctx.restore();
+  };
+  const arm = (sx, sy, th, near) => { // brazo: hombro -> codo -> puño, codo flexionado
+    const a = th, f = th + 1.45 + Math.max(0, th) * .35, U = 46, F = 40;
+    const ex = sx + Math.sin(a) * U, ey = sy + Math.cos(a) * U, wx = ex + Math.sin(f) * F, wy = ey + Math.cos(f) * F;
+    const sx2 = sx + Math.sin(a) * 12, sy2 = sy + Math.cos(a) * 12;
+    ctx.lineCap = ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(sx2, sy2); ctx.lineTo(ex, ey); ctx.lineTo(wx, wy); ctx.strokeStyle = OL; ctx.lineWidth = 30; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.lineTo(wx, wy); ctx.strokeStyle = near ? rig.sleeve : rig.sleeveD; ctx.lineWidth = 24; ctx.stroke();
+    const cx = wx - Math.sin(f) * 8, cy = wy - Math.cos(f) * 8;
+    ctx.beginPath(); ctx.moveTo(cx - Math.sin(f) * 6, cy - Math.cos(f) * 6); ctx.lineTo(cx + Math.sin(f) * 3, cy + Math.cos(f) * 3); ctx.strokeStyle = near ? rig.cuff : rig.cuffD; ctx.lineWidth = 25; ctx.stroke();
+    // puño: bloque redondeado en la dirección del antebrazo, con pulgar y nudillos
+    ctx.save(); ctx.translate(wx, wy); ctx.rotate(Math.PI / 2 - f);
+    ctx.beginPath(); ctx.roundRect(-2, -12, 25, 24, 10); ctx.fillStyle = near ? rig.skin : rig.skinD; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = OL; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(8, -9, 8, 5, -.25, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "rgba(150,80,70,.6)"; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(15, -2); ctx.lineTo(20, -2); ctx.moveTo(15, 5); ctx.lineTo(20, 5); ctx.stroke();
+    ctx.restore();
+  };
+  const aF = .1 - legs[0].th * .95, aB = .1 - legs[1].th * .95; // cada brazo va contrario a su pierna
+  const upper = (fn) => { ctx.save(); ctx.translate(hx, hy); ctx.rotate(lean); fn(); ctx.restore() };
+  upper(() => arm(-7, -50, aB, false));
+  leg(legs[1], false); leg(legs[0], true);
+  upper(() => { ctx.drawImage(rig.torso, -132, -258); arm(36, -53, aF, true) });
+}
+// Losas de hielo/piedra flotantes (cara superior clara, frente azul, contorno marino como el arte).
+function drawSlabs(ctx, x0, x1, y, t) {
+  const n = Math.max(1, Math.round((x1 - x0) / 46)), w = (x1 - x0) / n;
+  ctx.save(); ctx.lineJoin = "round";
+  for (let i = 0; i < n; i++) {
+    const a = x0 + i * w + 2, b = a + w - 4, dy = Math.sin(t * 1.6 + i * 1.3) * 1.2, top = y + dy, ins = 3;
+    const gl = ctx.createRadialGradient((a + b) / 2, top + 22, 0, (a + b) / 2, top + 22, w * .7); gl.addColorStop(0, "rgba(90,200,255,.22)"); gl.addColorStop(1, "rgba(90,200,255,0)");
+    ctx.fillStyle = gl; ctx.fillRect(a - 10, top + 8, b - a + 20, 30);
+    const fr = ctx.createLinearGradient(0, top + 5, 0, top + 18); fr.addColorStop(0, "#5f86cf"); fr.addColorStop(1, "#283a78");
+    ctx.beginPath(); ctx.moveTo(a, top + 5); ctx.lineTo(b, top + 5); ctx.lineTo(b - ins, top + 17); ctx.lineTo(a + ins + 2, top + 19); ctx.closePath();
+    ctx.fillStyle = fr; ctx.fill(); ctx.strokeStyle = "#0d1530"; ctx.lineWidth = 1.6; ctx.stroke();
+    const tp = ctx.createLinearGradient(0, top - 1, 0, top + 5); tp.addColorStop(0, "#f2f7ff"); tp.addColorStop(1, "#b8cbe9");
+    ctx.beginPath(); ctx.moveTo(a + 2, top - 1); ctx.lineTo(b - 2, top - 1); ctx.lineTo(b, top + 5); ctx.lineTo(a, top + 5); ctx.closePath();
+    ctx.fillStyle = tp; ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "rgba(140,220,255,.55)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a + w * (.3 + (i * 37 % 5) * .08), top + 7); ctx.lineTo(a + w * (.38 + (i * 37 % 5) * .08), top + 15); ctx.stroke();
+  }
+  ctx.restore();
+}
+const rigs = {}; function rigFor(sh) { if (!sh.complete || !sh.naturalWidth) return null; return rigs[sh.src] || (rigs[sh.src] = makeRig(sh)) }
+const AVATARS = { nina: { src: "assets/nina.png", name: "Niña", run: "assets/nina_run.png", runW: 291, runA: 168 }, nino: { src: "assets/nino.png", name: "Niño", run: "assets/nino_run.png", runW: 287, runA: 173 } };
+new Image().src = AVATARS.nino.src;
+// Hojas de carrera dibujadas: 8 cuadros de runW x 420 (ciclo completo); runA = x de la chamarra en el cuadro. Si un avatar aún no tiene,
+// corre con el rig por piezas.
+const runSheets = {}; for (const a of Object.values(AVATARS)) if (a.run) { const i = new Image(); i.src = a.run; runSheets[a.src] = i }
+function runSheetFor(sh) { const i = Object.entries(runSheets).find(([k]) => sh.src.endsWith(k)); return i && i[1].complete && i[1].naturalWidth ? i[1] : null }
+function applyAvatar(k) { const a = AVATARS[k] || AVATARS.nina; if (!sheet.src.endsWith(a.src)) sheet.src = a.src; $("#app").style.setProperty("--avatar", `url(${a.src})`) }
+// Proporciones: el personaje mide ~28% del alto de la pantalla y se ve ~40% más escenario a lo ancho que antes
+// (probado: .13 se veía muy chico, .22 muy grande; con zoom .72 no se veía la siguiente plataforma y se saltaba a ciegas).
+// KR y FR escalan todo lo que estaba medido para el tamaño anterior (K .22, FLY_K .72): zancada, sombra, estela, llama.
+const CW = 260, CH = 420, K = 0.19, FLY_K = .9; // FLY_K: tamaño del avatar al volar
+// Física de plataformas: correr y saltar más lento que antes; subir con la tecla presionada es más ligero que caer (salto con peso).
+// El hueco más ancho de los niveles mide 200 u: alcance = RUN_V x tiempo en el aire ~ 208 u (+16 u de tolerancia en los bordes).
+const RUN_V = 250, JUMP_V = 475, G_UP = 1050, G_DOWN = 1500;
+const KR = K / 0.22, FR = K * FLY_K / (0.22 * 0.72);
+const BOXS = .7, PZ = 1.1, OBS = .85; // caja ?, estrella y asteroides más chicos para pesar como el personaje; PZ: zoom de los portales (el nuevo es más grande y cubre el portal pintado del arte)
+const keys = { left: 0, right: 0, up: 0, down: 0 };
+let running = false, G = null, last = 0, gemsTotal = 0;
+const TAU = Math.PI * 2;
+const ease = p => p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+function tween(ms, f) { return new Promise(r => { const s = performance.now(); (function k(n) { const p = Math.min(1, (n - s) / ms); f(ease(p), p); p < 1 ? requestAnimationFrame(k) : r() })(s) }) }
+// precarga
+Object.values(LEVELS).flat().forEach(L => { img(L.img); [L.box, L.star].concat(L.movers || [], L.obst || []).forEach(o => o && o.spr && spr(o.spr)) });
+
+const KEYMAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", " ": "up", ArrowDown: "down", s: "down", S: "down" };
+addEventListener("keydown", e => {
+  const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+  if (!dlg.hidden && !typing && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); dlgAdvance(); return }
+  if (running && G && G.cupPick && "123".includes(e.key)) { pickSlot(+e.key - 1); return }
+  const k = KEYMAP[e.key]; if (k && running && !typing) { keys[k] = 1; e.preventDefault() }
+});
+addEventListener("keyup", e => { const k = KEYMAP[e.key]; if (k) keys[k] = 0 });
+document.querySelectorAll(".pad-btn").forEach(b => {
+  const k = b.dataset.k;
+  const on = e => { e.preventDefault(); keys[k] = 1; b.classList.add("on") }, off = e => { e.preventDefault(); keys[k] = 0; b.classList.remove("on") };
+  b.addEventListener("pointerdown", on); b.addEventListener("pointerup", off); b.addEventListener("pointerleave", off); b.addEventListener("pointercancel", off);
+});
+cv.addEventListener("pointerdown", e => {
+  if (!G || !G.cupPick || !G.view) return;
+  const r = cv.getBoundingClientRect(), d = cv.width / r.width, v = G.view;
+  const wx = (e.clientX - r.left) * d / v.s + v.cam, wy = ((e.clientY - r.top) * d - v.oy) / v.s;
+  G.cups.forEach((c, i) => { if (Math.abs(wx - c.x) < 44 && wy > c.y - 80 && wy < c.y + 12) pickCup(i) });
+});
+
+function toast(t) { const el = $("#toast"); el.textContent = t; el.style.opacity = 1; clearTimeout(toast.t); toast.t = setTimeout(() => el.style.opacity = 0, 1700) }
+let RS = 1; // escala de render: limita los píxeles que se dibujan por cuadro
+function resize() { const r = cv.getBoundingClientRect(); RS = Math.max(.6, Math.min(devicePixelRatio || 1, 2.5, Math.sqrt(2.6e6 / Math.max(1, r.width * r.height)))); cv.width = Math.max(1, Math.round(r.width * RS)); cv.height = Math.max(1, Math.round(r.height * RS)); if (G) G.rowC = null }
+addEventListener("resize", resize);
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+function makeFx(L, W, H) {
+  const f = { stars: [], parts: [], dust: [] };
+  for (let i = 0; i < 160; i++) f.stars.push({ x: rnd(0, W), y: rnd(-H * 2.6, H * .6), p: rnd(0, TAU), s: rnd(.6, 1.8) });
+  for (let i = 0; i < 45; i++) f.dust.push({ x: rnd(0, 1), y: rnd(0, 1), s: rnd(.5, 2), v: rnd(.2, .6) });
+  return f;
+}
+function spawnPart(L, W, H) {
+  if (L.fx === "lava") { const glow = Math.random() < .35; return { x: rnd(0, W), y: rnd(H - 45, H), vx: rnd(-8, 8), vy: rnd(-45, -18), life: rnd(1.5, 3), t: 0, c: Math.random() < .5 ? "255,150,40" : "255,220,90", r: rnd(1, 2.4), glow } }
+  if (L.fx === "water") return { x: rnd(0, W), y: rnd(H - 40, H), vx: rnd(-4, 4), vy: rnd(-20, -8), life: rnd(1.5, 3), t: 0, c: "170,245,255", r: rnd(1, 2.2), ring: 1 };
+  if (L.fx === "cave") { const glow = Math.random() < .3; return { x: rnd(0, W), y: rnd(-H * 1.5, H), vx: rnd(-5, 5), vy: rnd(-14, -5), life: rnd(2, 4), t: 0, c: glow ? "255,230,140" : (Math.random() < .3 ? "190,140,255" : "120,230,255"), r: glow ? rnd(1.5, 2.4) : rnd(.8, 1.8), glow } } // luciérnagas cálidas mezcladas con el polvo de cueva
+  if (Math.random() < .05) return { x: rnd(0, W), y: rnd(-H * 1.5, H), vx: rnd(-3, -1), vy: 0, life: rnd(10, 16), t: 0, c: Math.random() < .5 ? "120,100,220" : "80,160,255", r: rnd(50, 95), cloud: 1 }; // nubes de nebulosa, grandes y lentas
+  return { x: rnd(0, W), y: rnd(-H * 1.5, H), vx: rnd(-10, -3), vy: rnd(-2, 2), life: rnd(2, 4), t: 0, c: Math.random() < .4 ? "200,160,255" : "150,220,255", r: rnd(.6, 1.6) };
+}
+
+const MAX_LIVES = 5, MAX_SHOWN = 7, GEMS_PER_LIFE = 5; // 5 vidas al empezar; cada 5 gemas regalan 1 (hasta 7)
+let carryLives = MAX_LIVES, gameOverBusy = false; const areaGems0 = {};
+const hearts = n => n > MAX_LIVES ? `❤️×${n}` : "❤️".repeat(Math.max(0, n)) + "🖤".repeat(MAX_LIVES - Math.max(0, n)); // con vidas extra se compacta: ❤️×7
+function startLevel(area, idx) {
+  const L = LEVELS[area][idx]; const im = img(L.img);
+  G = { area, idx, L, im, x: L.spawn, y: L.fly ? L.spawnY : L.plats[0][2], vx: 0, vy: 0, ground: !L.fly, face: 1, fly: !!L.fly,
+        t: 0, answered: false, busy: true, exitOn: false, star: false, cp: L.spawn, trail: [], done: null, inv: 0, on: null,
+        portalOpen: L.portal && L.portal.open ? 1 : 0, absorb: 0, boxGone: 0, burst: [], gems: (L.gems || []).map(g => ({ x: g[0], y: g[1], got: 0 })),
+        cups: null, cupPick: false, fx: null, parts: [], lives: carryLives, lifeMarks: Math.floor(gemsTotal / GEMS_PER_LIFE), camLock: null, emerge: 1, warpFlash: 0, flyTilt: 0, nearMiss: {} };
+  setTheme(area === "alg" ? "alg" : null);
+  const p0 = platAt(G.x); if (!L.fly && p0) G.y = p0[2];
+  boom(G.x, G.y - 22, "200,230,255"); // chispazo de llegada: el personaje se "materializa" al entrar al nivel
+  const dots = $("#g-dots"); dots.innerHTML = [0, 1, 2].map(i => `<i class="${i < idx || idx === 4 ? "on" : ""}"></i>`).join("");
+  $("#g-lvl").textContent = AREA[area].name + (idx === 0 ? " · Bienvenida" : idx === 4 ? " · Meta" : ` · Nivel ${idx}`);
+  $('[data-k="down"]').setAttribute("aria-label", G.fly ? "Bajar" : "Agacharse");
+  const hn = $("#g-hint"); hn.style.opacity = 1; clearTimeout(hn.t); hn.t = setTimeout(() => hn.style.opacity = 0, 6000);
+  $("#g-hint").textContent = G.fly ? "← → avanzar · ↑ ↓ volar · esquiva los asteroides" : "← → caminar · ↑ o Espacio saltar · ↓ agacharse";
+  $("#fxov").dataset.fx = L.fx || ""; G.rowC = null;
+  if (L.cups) G.cups = L.cups.slots.map((x, i) => ({ x, y: L.cups.y, lift: 0, i }));
+  updGems(); updLives();
+  return new Promise(res => { G.done = res });
+}
+function updLives() { if (!G) return; $("#g-lives").textContent = hearts(G.lives); }
+// Resta una vida; con 0 vidas se acaba la partida: el juego vuelve al inicio del recorrido (gameOver).
+function loseLife(msg) {
+  if (!G || G.absorb || gameOverBusy) return false;
+  G.lives--; carryLives = G.lives; updLives(); toast(msg); G.shake = Math.max(G.shake || 0, .3); G.flash = Math.max(G.flash || 0, .55); freeze(70); sfxLife();
+  return G.lives <= 0;
+}
+// Cada GEMS_PER_LIFE gemas regalan una vida (máx. MAX_SHOWN); también se llama al ganar gemas extra.
+function gemBonus() {
+  const marks = Math.floor(gemsTotal / GEMS_PER_LIFE);
+  while (G && marks > G.lifeMarks) { G.lifeMarks++; if (G.lives < MAX_SHOWN) { G.lives++; carryLives = G.lives; updLives(); toast(`💎 ¡${GEMS_PER_LIFE} gemas! +1 vida`); sfxStar() } else toast("💎 ¡Vidas al máximo!") }
+}
+async function gameOver() {
+  if (gameOverBusy || !G) return; gameOverBusy = true;
+  const area = G.area; G.busy = true; G.vx = 0; qm.hidden = true;
+  await say(["¡Game Over! Se acabaron las vidas.", "Volvemos al inicio del recorrido, con " + MAX_LIVES + " vidas nuevas. ¡Tú puedes!"]);
+  gemsTotal = areaGems0[area] != null ? areaGems0[area] : gemsTotal; gameOverBusy = false;
+  playArea(area); // la partida anterior se abandona: todas sus esperas dependían del G viejo
+}
+function updGems() { $("#g-gems-n").textContent = gemsTotal }
+
+function moverOff(m, t) { const a = TAU * t / m.T + (m.ph || 0); return [(m.ax || 0) * Math.sin(a) * (m.mir ? -1 : 1), (m.ay || 0) * Math.sin(a)] }
+function plats() {
+  const L = G.L; let p = L.plats.slice(); if (L.bridges) p = p.concat(L.bridges); if (G.exitOn && L.exit) p.push(L.exit);
+  for (const b of L.blocks || []) p.push(Object.assign([b[0], b[1], b[2]], { blk: true }));
+  if (L.movers) for (const m of L.movers) { const [dx, dy] = moverOff(m, G.t); const w = m.walk; p.push([w[0] + dx, w[1] + dx, w[2] + dy, m]) }
+  return p;
+}
+function platAt(x) { return plats().find(p => x >= p[0] - 6 && x <= p[1] + 6) }
+function obstPos(o, t) { const a = TAU * t / o.T; return [o.c[0] + (o.ax || 0) * Math.cos(a), o.c[1] + (o.ay || 0) * Math.sin(a), o.rot * t] }
+function openPortal() { if (G.portalOpen > 0) return; G.portalOpen = 0.01; tween(900, p => { if (G) G.portalOpen = Math.max(.01, p) }); toast("¡Se abrió el portal!") }
+
+function step(dt) {
+  const L = G.L, rowW = L.rowW || (G.im.naturalWidth || 4548) / RES, rowH = (G.im.naturalHeight || 450) / RES;
+  const prevT = G.t; G.t += dt; if (G.inv > 0) G.inv -= dt;
+  // efectos
+  if (!G.fx) G.fx = makeFx(L, rowW, rowH);
+  if (G.parts.filter(p => !p.trail).length < 140 && Math.random() < dt * 60) G.parts.push(spawnPart(L, rowW, rowH));
+  for (const p of G.parts) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt }
+  if (G.shake > 0) G.shake -= dt; if (G.flash > 0) G.flash -= dt * 2.5; if (G.squash) G.squash *= Math.pow(.0006, dt);
+  G.parts = G.parts.filter(p => p.t < p.life);
+  for (const b of G.burst) { b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 60 * dt }
+  G.burst = G.burst.filter(b => b.t < b.life);
+  if (G.absorb) {
+    const wasBelow = G.absorb < 1; G.absorb = Math.min(1, G.absorb + dt / .9);
+    { const P = L.portal, s2 = (P.s || 1) * PZ, cx = P.x, cyy = P.y - 52 * s2 - 3 * s2; // chispas que el portal succiona
+      if (Math.random() < dt * 60) { const an = Math.random() * TAU, r = (30 + Math.random() * 30) * s2; G.burst.push({ x: cx + Math.cos(an) * r, y: cyy + Math.sin(an) * r * 1.4, vx: -Math.cos(an) * r * 2.4, vy: -Math.sin(an) * r * 3.2, t: 0, life: .45, c: Math.random() < .5 ? "160,240,255" : "200,160,255" }) } }
+    if (wasBelow && G.absorb >= 1) { G.warpFlash = 1.3; sfxWarp(); if (G.done) { const d = G.done; G.done = null; d() } }
+    return;
+  }
+  if (G.warpFlash > 0) G.warpFlash -= dt * 2.2;
+  if (G.emerge > 0) G.emerge = Math.max(0, G.emerge - dt / .5);
+  const busy = G.busy || !dlg.hidden || !qm.hidden;
+  const dir = busy ? 0 : (keys.right - keys.left);
+  if (dir) G.face = dir;
+  if (G.fly) {
+    G.vx = dir * 230; G.vy = busy ? 0 : (keys.down - keys.up) * 200;
+    G.kb = (G.kb || 0) * Math.pow(.02, dt);               // empuje del golpe que se va frenando
+    G.x += (G.vx + G.kb) * dt; G.y = Math.max(30, Math.min(rowH - 8, G.y + G.vy * dt));
+    // inclinación dinámica: sube/baja según la velocidad vertical, como un jetpack real (Jetpack Joyride)
+    const tiltTarget = Math.max(-1, Math.min(1, -G.vy / 180)) * .55;
+    G.flyTilt += (tiltTarget - G.flyTilt) * Math.min(1, dt * 7);
+    const tailA = .35 + G.flyTilt * .5;
+    G.trail.push({ x: G.x - 20 * FR * G.face, y: G.y - 22 * FR, a: 1 }); if (G.trail.length > 24) G.trail.shift();
+    // llama de propulsión: partículas cálidas saliendo de la espalda, más intensas si está subiendo
+    const thrust = .55 + Math.max(0, -G.vy) / 150;
+    if (Math.random() < dt * 30 * thrust) { const tx = G.x - G.face * Math.cos(tailA) * 34 * FR, ty = G.y - Math.sin(tailA) * -34 * FR + 14 * FR; G.parts.push({ x: tx + rnd(-3, 3), y: ty + rnd(-3, 3), vx: -G.face * rnd(40, 90) + G.vx * .3, vy: rnd(-10, 10), t: 0, life: rnd(.25, .4), c: Math.random() < .5 ? "255,170,60" : "255,220,120", r: rnd(2, 4), jet: 1 }) }
+    // colisión precisa: tres círculos a lo largo del cuerpo inclinado (cabeza, torso, piernas)
+    if (G.inv <= 0) {
+      const Hb = CH * K * FLY_K, lean = .35;
+      const pts = [.18, .5, .82].map(u => [G.x + G.face * Math.sin(lean) * u * Hb, G.y - Math.cos(lean) * u * Hb]);
+      const rb = Hb * .14;
+      let hitOne = false;
+      hit: for (const o of L.obst) { const [ox, oy] = obstPos(o, G.t); for (const [px, py] of pts) if (Math.hypot(px - ox, py - oy) < o.c[2] * OBS * .82 + rb) {
+        hitOne = true;
+        const over = loseLife("¡Esquiva los asteroides!");
+        G.inv = over ? 2 : 1.2; G.kb = -330 * G.face;
+        if (over) { G.kb = 0; G.trail = []; gameOver(); return }
+        for (let i = 0; i < 16; i++) G.burst.push({ x: px, y: py, vx: rnd(-110, 110), vy: rnd(-110, 50), t: 0, life: .6, c: "255,120,140" });
+        break hit } }
+      // "casi me rozó": premia esquivar por poco, una sola vez por obstáculo (truco clásico de juegos de esquivar)
+      if (!hitOne) for (const o of L.obst) { if (G.nearMiss[o.spr + o.c[0]]) continue; const [ox, oy] = obstPos(o, G.t); const d = Math.hypot(G.x - ox, G.y - oy); if (d < o.c[2] * OBS * 1.7 && Math.abs(G.x - ox) < 40) { G.nearMiss[o.spr + o.c[0]] = 1; toast("¡Por poco!"); tone(880, .06, "sine", .08); for (let i = 0; i < 6; i++) G.parts.push({ x: (G.x + ox) / 2, y: (G.y + oy) / 2, vx: rnd(-40, 40), vy: rnd(-40, 40), t: 0, life: .3, c: "255,255,255", r: 1.4, glow: 1 }) } }
+    }
+    if (G.x >= L.land) { G.fly = false; G.y = L.plats[0][2]; G.vy = 0; G.kb = 0; G.ground = true; G.trail = []; G.flyTilt = 0; dust(G.x, G.y, 16); toast("¡Aterrizaje!") }
+  } else {
+    // arrastre de plataforma móvil
+    if (G.on && G.ground) { const [ax, ay] = moverOff(G.on, prevT), [bx, by] = moverOff(G.on, G.t); G.x += bx - ax; G.y += by - ay }
+    const wasFast = Math.abs(G.vx) > 220;
+    G.vx = dir * RUN_V * (keys.down && G.ground ? 0.35 : 1);
+    if (wasFast && dir === 0 && G.ground) G.squash = Math.max(G.squash || 0, .5); // frenada brusca
+    if (!busy && keys.up && (G.ground || G.coyote > 0)) { G.vy = -JUMP_V; G.ground = false; G.coyote = 0; G.jt = 0; G.on = null; G.squash = -.8; sfxJump() }
+    if (!keys.up && G.vy < -250) G.vy = -250;
+    let prevY = G.y; const fallV = G.vy, prevX = G.x; G.vy += (G.vy < 0 && keys.up ? G_UP : G_DOWN) * dt; G.x += (G.vx + (G.kbx || 0)) * dt; G.kbx = (G.kbx || 0) * Math.pow(.02, dt); G.y += G.vy * dt;
+    for (const b of L.blocks || []) { // bloques sólidos: si los pies están más abajo que la cima y se mete de lado, se frena (y sube solo si el escalón es de <= 7)
+      const hw = 9; if (G.x + hw > b[0] && G.x - hw < b[1] && G.y > b[2] + 3 && prevY > b[2] + 3 - 1) {
+        if (prevY - b[2] <= 7 && G.vy >= 0) { G.y = b[2]; prevY = b[2] - 1; G.vy = 0 }
+        else { G.x = prevX <= (b[0] + b[1]) / 2 ? b[0] - hw : b[1] + hw; G.vx = 0; G.kbx = 0 }
+      } } G.jt = (G.jt || 0) + dt;
+    G.coyote = Math.max(0, (G.coyote || 0) - dt);
+    let landed = null;
+    if (G.vy >= 0) for (const p of plats()) { if (G.x >= p[0] - 8 && G.x <= p[1] + 8 && prevY <= p[2] + 3 && G.y >= p[2]) { G.y = p[2]; G.vy = 0; landed = p; break } }
+    if (G.ground && !landed) G.coyote = 0.1;
+    if (landed && !G.ground && G.jt > .15) { dust(G.x, G.y, Math.min(22, 6 + fallV / 60)); G.squash = Math.min(1.6, .5 + fallV / 500); if (fallV > 150) sfxLand() }
+    if (landed && Math.abs(G.vx) > 50 && Math.random() < dt * 9) dust(G.x - 10 * G.face, G.y, 1);
+    G.ground = !!landed; G.on = landed && landed[3] ? landed[3] : null;
+    if (G.trail.length) G.trail.length = 0;
+    // cristales peligrosos: tocarlos con los pies cuesta una vida (se esquivan saltando)
+    if (G.inv <= 0 && L.hz) for (const h of L.hz) {
+      const off = hzX(h, G.t);
+      if (G.x > h[0] + off - 5 && G.x < h[1] + off + 5 && G.y > h[2] - 11 && G.y < h[2] + 14) {
+        const over = loseLife("¡Ouch! Esquiva los cristales rojos."); G.inv = 1.2; G.vy = -330; G.ground = false; G.kbx = -(G.face || 1) * 230;
+        for (let i = 0; i < 14; i++) G.burst.push({ x: G.x, y: G.y - 6, vx: rnd(-110, 110), vy: rnd(-130, 20), t: 0, life: .6, c: "255,90,130" });
+        if (over) { gameOver(); return }
+        break;
+      }
+    }
+    if (landed && !landed[3] && landed !== L.exit && !landed.blk) G.cp = Math.min(Math.max(G.x, landed[0] + 20), landed[1] - 20);
+    if (G.y > rowH + 60) {
+      const over = loseLife("¡Cuidado! Evita caer.");
+      if (over) G.cp = L.spawn;
+      G.x = G.cp; const p = platAt(G.cp); G.y = p ? p[2] : L.plats[0][2]; G.vy = 0; G.on = null; G.trail.length = 0;
+      if (over) { gameOver(); return }
+    }
+  }
+  G.x = Math.max(14, Math.min(rowW - 14, G.x));
+  // gemas: el punto de agarre depende de la pose real (de pie vs. volando inclinada), si no el
+  // hitbox queda desalineado de lo que se ve en pantalla y las gemas "no se sienten" agarrables.
+  let gcx = G.x, gcy = G.y - 28, grx = 26, gry = 40;
+  if (G.fly) { const Hb = CH * K * FLY_K; gcx = G.x + G.face * Math.sin(.35) * .5 * Hb; gcy = G.y - Math.cos(.35) * .5 * Hb; grx = 34; gry = 42 }
+  for (const g of G.gems) if (!g.got && Math.abs(gcx - g.x) < grx && Math.abs(gcy - g.y) < gry) { g.got = 1; gemsTotal++; updGems(); gemBonus(); sfxGem(); for (let i = 0; i < 10; i++) G.burst.push({ x: g.x, y: g.y, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, life: .7, c: "120,255,220" }) }
+  if (L.star && !G.star && Math.abs(G.x - L.star.x) < 34) { G.star = true; toast("⭐ ¡Estrella conseguida!"); gemsTotal += 3; updGems(); gemBonus(); boom(L.star.x, 40, "255,210,80"); freeze(70); sfxStar() }
+  if (!G.busy && L.box && !G.answered && Math.abs(G.x - L.box.x) < 26 && !G.fly) { G.busy = true; G.onBox && G.onBox() }
+  if (L.goal && G.x >= L.goal) openPortal();
+  const P = L.portal;
+  if (!G.busy && P && G.portalOpen >= 1 && Math.abs(G.x - P.x) < 15 * PZ * (P.s || 1) + 6) { G.busy = true; G.absorb = 0.001; G.face = 1 }
+}
+function dust(x, y, n) { for (let i = 0; i < n; i++) G.burst.push({ x: x + rnd(-10, 10), y: y - rnd(0, 3), vx: rnd(-50, 50), vy: rnd(-40, -8), t: 0, life: rnd(.35, .7), c: "210,235,255", big: 1 }) }
+function boom(x, y, c) { for (let i = 0; i < 24; i++) G.burst.push({ x, y, vx: rnd(-140, 140), vy: rnd(-160, 30), t: 0, life: rnd(.5, 1), c }) }
+
+/* Portal animado (se usa en el juego y en las pantallas de transición) */
+/* Portal con profundidad (se usa en el juego y en las pantallas de transición).
+   Dos capas: "back" (charco de luz en el piso, rayo de luz, túnel con anillos que se alejan, marco de piedra con runas)
+   y "front" (el arco inferior del marco), que se pinta DESPUÉS del personaje mientras es absorbido: así parece que
+   entra al túnel en vez de pasar por encima. Con open = 0 el portal se ve sellado (marco con runas apagadas). */
+function portalRing(c, rx, ry, th, s, t, op, lowerOnly) {
+  const N = 16, pulse = .5 + .5 * Math.sin(t * 3);
+  for (let i = 0; i < N; i++) {
+    const a0 = i * TAU / N + .018, a1 = (i + 1) * TAU / N - .018, am = (a0 + a1) / 2;
+    if (lowerOnly && Math.sin(am) < .3) continue;
+    const ox = r => Math.cos(r), oy = r => Math.sin(r), R0 = 1, R1 = (rx + th) / rx;
+    c.beginPath();
+    c.moveTo(ox(a0) * (rx + th), oy(a0) * (ry + th)); c.lineTo(ox(a1) * (rx + th), oy(a1) * (ry + th));
+    c.lineTo(ox(a1) * rx, oy(a1) * ry); c.lineTo(ox(a0) * rx, oy(a0) * ry); c.closePath();
+    const lit = .5 + .5 * Math.cos(am + 2.2), g = c.createLinearGradient(ox(am) * (rx + th), oy(am) * (ry + th), ox(am) * rx, oy(am) * ry);
+    g.addColorStop(0, `rgb(${Math.round(120 + 100 * lit)},${Math.round(150 + 90 * lit)},${Math.round(215 + 30 * lit)})`); g.addColorStop(1, `rgb(${Math.round(30 + 40 * lit)},${Math.round(48 + 52 * lit)},${Math.round(105 + 40 * lit)})`);
+    c.fillStyle = g; c.fill(); c.lineWidth = 1.5 * s; c.strokeStyle = "#0a1230"; c.stroke();
+    if (i % 2) { // runa
+      const rr = (rx + th * .5), px = ox(am) * rr, py = oy(am) * (ry + th * .5), ang = am + Math.PI / 2, k = (.2 + .8 * op) * (.7 + .3 * pulse);
+      c.save(); c.translate(px, py); c.rotate(ang); c.globalCompositeOperation = "lighter"; c.strokeStyle = `rgba(110,240,255,${k})`; c.lineWidth = 1.6 * s; c.lineCap = "round";
+      c.beginPath(); c.moveTo(-2.6 * s, -2.2 * s); c.lineTo(0, 2.4 * s); c.lineTo(2.6 * s, -2.2 * s); c.moveTo(-2.6 * s, 0); c.lineTo(2.6 * s, 0); c.stroke(); c.restore();
+    }
+  }
+}
+function drawPortal(c, x, yb, s, t, open, part) {
+  const doFront = part === "front", doBack = !doFront;
+  const rx = 34 * s, ry = 52 * s, th = 9 * s, cy = yb - ry - 3 * s, op = Math.max(0, Math.min(1, open || 0)), pulse = .5 + .5 * Math.sin(t * 3);
+  c.save(); c.translate(x, cy);
+  if (doFront) { portalRing(c, rx, ry, th, s, t, op, true); c.restore(); return }
+  // charco de luz en el piso: da apoyo al portal
+  c.globalCompositeOperation = "lighter";
+  let g = c.createRadialGradient(0, ry + 3 * s, 0, 0, ry + 3 * s, rx * 2); g.addColorStop(0, `rgba(80,225,255,${.1 + .5 * op})`); g.addColorStop(1, "rgba(80,225,255,0)");
+  c.save(); c.translate(0, ry + 3 * s); c.scale(1, .17); c.translate(0, -(ry + 3 * s)); c.fillStyle = g; c.beginPath(); c.arc(0, ry + 3 * s, rx * 2, 0, TAU); c.fill(); c.restore();
+  // rayo de luz hacia arriba
+  if (op > .02) { const bg = c.createLinearGradient(0, -ry, 0, -ry - 150 * s); bg.addColorStop(0, `rgba(140,235,255,${.22 * op})`); bg.addColorStop(1, "rgba(140,235,255,0)");
+    c.fillStyle = bg; c.beginPath(); c.moveTo(-rx * .75, -ry * .6); c.lineTo(rx * .75, -ry * .6); c.lineTo(rx * 1.05, -ry - 150 * s); c.lineTo(-rx * 1.05, -ry - 150 * s); c.closePath(); c.fill() }
+  c.globalCompositeOperation = "source-over";
+  // interior: vacío + túnel de anillos que se alejan hacia el fondo
+  c.save(); c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.clip();
+  g = c.createRadialGradient(0, 0, 0, 0, 0, rx * 1.25); g.addColorStop(0, "#07021c"); g.addColorStop(.5, "#190a50"); g.addColorStop(1, "#0b2c66"); c.fillStyle = g; c.fillRect(-rx, -ry, rx * 2, ry * 2);
+  c.globalCompositeOperation = "lighter";
+  const sc = .12 + .88 * op;
+  for (let k = 0; k < 9; k++) {
+    const f = ((t * (.28 + .2 * op) + k / 9) % 1), r = (1.05 - f * .98) * sc, a = Math.sin(f * Math.PI) * (.25 + .65 * op), ox = Math.sin(t * .8 + k) * rx * .05 * f;
+    c.strokeStyle = `hsla(${k % 2 ? 265 : 190},95%,${62 + 12 * (1 - f)}%,${a})`; c.lineWidth = (1 + (1 - f) * 3.6) * s;
+    c.beginPath(); c.ellipse(ox, -ry * .04 * f, rx * r, ry * r, 0, 0, TAU); c.stroke();
+  }
+  for (let k = 0; k < 5; k++) { // brazos del remolino
+    c.beginPath();
+    for (let r = .06; r <= 1; r += .04) { const an = -t * 2.6 * (.4 + .6 * op) + k * TAU / 5 + r * 5.4; const px = Math.cos(an) * rx * r * sc, py = Math.sin(an) * ry * r * sc; r === .06 ? c.moveTo(px, py) : c.lineTo(px, py) }
+    c.strokeStyle = k % 2 ? `rgba(190,140,255,${.2 + .4 * op})` : `rgba(140,240,255,${.2 + .38 * op})`; c.lineWidth = 2.3 * s; c.stroke();
+  }
+  if (op > .5) for (let k = 0; k < 3; k++) { // descargas de energía
+    const a0 = t * 1.7 + k * 2.1, vis = Math.sin(t * 9 + k * 5) > .35 ? 1 : 0; if (!vis) continue;
+    c.beginPath(); let ex = Math.cos(a0) * rx, ey = Math.sin(a0) * ry; c.moveTo(ex, ey);
+    for (let q = 1; q <= 6; q++) { const f = q / 6; c.lineTo(ex * (1 - f) + Math.sin(t * 40 + q * 3 + k) * 4 * s, ey * (1 - f) + Math.cos(t * 33 + q * 2 + k) * 4 * s) }
+    c.strokeStyle = `rgba(220,245,255,${.5 * op})`; c.lineWidth = 1.3 * s; c.stroke();
+  }
+  g = c.createRadialGradient(0, 0, 0, 0, 0, rx * .55 * sc); g.addColorStop(0, `rgba(235,225,255,${(.35 + .3 * pulse) * op + .04})`); g.addColorStop(1, "rgba(160,110,255,0)"); c.fillStyle = g; c.fillRect(-rx, -ry, rx * 2, ry * 2);
+  c.restore();
+  // marco de piedra con runas
+  c.globalCompositeOperation = "source-over"; portalRing(c, rx, ry, th, s, t, op, false);
+  // brillo del borde interior y onda al abrirse
+  c.globalCompositeOperation = "lighter";
+  c.strokeStyle = `rgba(158,242,255,${(.12 + .6 * op) * (.8 + .2 * pulse)})`; c.lineWidth = 2.6 * s; c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.stroke();
+  if (op > .02 && op < 1) { const w = 1 + (1 - op) * 1.1; c.strokeStyle = `rgba(190,245,255,${op * (1 - op) * 3})`; c.lineWidth = 3 * s; c.beginPath(); c.ellipse(0, 0, (rx + th) * w, (ry + th) * w, 0, 0, TAU); c.stroke() }
+  // partículas que el portal atrae y chispas que suben del piso
+  for (let i = 0; i < 16; i++) { const f = ((t * .5 + i / 16) % 1), an = i * 2.4 + t * 1.1, r = 1.55 - f * 1.35; c.fillStyle = `rgba(200,240,255,${.9 * f * (.15 + .85 * op)})`; c.beginPath(); c.arc(Math.cos(an) * (rx + th) * r, Math.sin(an) * (ry + th) * r, 1.5 * s, 0, TAU); c.fill() }
+  for (let i = 0; i < 10; i++) { const f = ((t * .32 + i * .1) % 1), px = (((i * 37) % 100) / 100 - .5) * rx * 2.6; c.fillStyle = `rgba(150,235,255,${(1 - f) * .75 * (.2 + .8 * op)})`; c.fillRect(px, ry + 3 * s - f * ry * 1.7, 1.6 * s, 1.6 * s) }
+  c.restore();
+}
+function drawCup(c, x, y, lift, t) {
+  const w = 76, h = 64, top = y - h - lift;
+  c.save();
+  const g = c.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+  g.addColorStop(0, "rgba(120,220,255,.35)"); g.addColorStop(.35, "rgba(200,245,255,.22)"); g.addColorStop(1, "rgba(80,180,255,.4)");
+  c.beginPath(); c.moveTo(x - w * .34, top); c.lineTo(x + w * .34, top); c.lineTo(x + w / 2, y - lift); c.lineTo(x - w / 2, y - lift); c.closePath();
+  c.fillStyle = g; c.fill(); c.strokeStyle = "rgba(170,240,255,.95)"; c.lineWidth = 2.2; c.stroke();
+  c.shadowBlur = 0; c.beginPath(); c.ellipse(x, top, w * .34, 5, 0, 0, TAU); c.fillStyle = "rgba(210,250,255,.45)"; c.fill(); c.stroke();
+  c.beginPath(); c.ellipse(x, y - lift, w / 2, 6, 0, 0, TAU); c.strokeStyle = "rgba(120,230,255,.9)"; c.stroke();
+  c.fillStyle = "rgba(255,255,255,.35)"; c.fillRect(x - w * .22, top + 8, 5, h - 18);
+  c.restore();
+}
+function drawQBox(c, x, yb, t, s = 1) {
+  const b = spr("alg3_box"); if (!b.complete) return; const w = 44 * s, h = w * b.height / b.width;
+  c.drawImage(b, x - w / 2, yb - h + 2, w, h);
+}
+/* Globo de diálogo con "?" flotando sobre una caja, para que se note que hay que tocarla. */
+/* Bloques sólidos con volumen: cara superior clara, frente degradado con paneles y vetas de luz, contorno marino
+   (mismo estilo que las plataformas del arte), sombra de contacto en el piso y oclusión en la base. */
+function drawBlock(c, b, t, fx) {
+  const [x0, x1, top, gy] = b, w = x1 - x0, h = gy - top, d = 6, glowC = fx === "lava" ? "255,160,90" : fx === "water" ? "90,255,210" : "110,225,255";
+  c.save(); c.lineJoin = "round";
+  // sombra de contacto y brillo ambiental en el piso
+  const sg = c.createRadialGradient((x0 + x1) / 2, gy, 0, (x0 + x1) / 2, gy, w * .9); sg.addColorStop(0, "rgba(0,4,24,.5)"); sg.addColorStop(1, "rgba(0,4,24,0)");
+  c.save(); c.translate(0, gy); c.scale(1, .22); c.translate(0, -gy); c.fillStyle = sg; c.beginPath(); c.arc((x0 + x1) / 2 + 4, gy, w * .9, 0, TAU); c.fill(); c.restore();
+  // frente
+  const fg = c.createLinearGradient(0, top, 0, gy); fg.addColorStop(0, "#6d92da"); fg.addColorStop(.55, "#3d58a6"); fg.addColorStop(1, "#1f2f70");
+  c.fillStyle = fg; c.strokeStyle = "#0d1530"; c.lineWidth = 1.8; c.beginPath(); c.rect(x0, top, w, h); c.fill(); c.stroke();
+  // paneles
+  c.strokeStyle = "rgba(13,21,48,.7)"; c.lineWidth = 1.1; const rows = Math.max(1, Math.round(h / 16));
+  for (let i = 1; i < rows; i++) { const y = top + h * i / rows; c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y); c.stroke() }
+  if (w > 24) { c.beginPath(); c.moveTo(x0 + w * .5, top); c.lineTo(x0 + w * .5, top + h / rows); c.stroke() }
+  // veta de luz pulsante en el panel de en medio
+  const pulse = .55 + .45 * Math.sin(t * 2.4 + x0); c.fillStyle = `rgba(${glowC},${.45 * pulse})`; c.fillRect(x0 + 5, top + h * .5 - 1.2, w - 10, 2.4);
+  // remaches
+  c.fillStyle = "rgba(210,230,255,.7)"; for (const [rx, ry] of [[x0 + 3.5, top + 4], [x1 - 3.5, top + 4]]) { c.beginPath(); c.arc(rx, ry, 1.1, 0, TAU); c.fill() }
+  // oclusión en la base
+  const og = c.createLinearGradient(0, gy - 7, 0, gy); og.addColorStop(0, "rgba(0,6,30,0)"); og.addColorStop(1, "rgba(0,6,30,.55)"); c.fillStyle = og; c.fillRect(x0, gy - 7, w, 7);
+  // cara superior (tapa) con perspectiva
+  const tg = c.createLinearGradient(0, top - d, 0, top); tg.addColorStop(0, "#f4f8ff"); tg.addColorStop(1, "#bdd0ee");
+  c.fillStyle = tg; c.strokeStyle = "#0d1530"; c.lineWidth = 1.8; c.beginPath(); c.moveTo(x0, top); c.lineTo(x0 + 3.5, top - d); c.lineTo(x1 - 3.5, top - d); c.lineTo(x1, top); c.closePath(); c.fill(); c.stroke();
+  c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 1; c.beginPath(); c.moveTo(x0 + 5, top - d + 1.6); c.lineTo(x1 - 5, top - d + 1.6); c.stroke();
+  c.restore();
+}
+function hzX(h, t) { return h[3] ? h[3] * Math.sin(TAU * t / h[4]) : 0 } // h = [x0, x1, y, amplitud, periodo]
+function drawHazards(c, L, t) {
+  for (const h of L.hz || []) {
+    const off = hzX(h, t), x0 = h[0] + off, x1 = h[1] + off, y = h[2], n = Math.max(2, Math.round((x1 - x0) / 9)), w = (x1 - x0) / n, pulse = .5 + .5 * Math.sin(t * 4 + h[0]);
+    c.save(); c.globalCompositeOperation = "lighter";
+    const g = c.createRadialGradient((x0 + x1) / 2, y - 6, 0, (x0 + x1) / 2, y - 6, (x1 - x0) * .85 + 8); g.addColorStop(0, `rgba(255,70,110,${.26 + .16 * pulse})`); g.addColorStop(1, "rgba(255,70,110,0)");
+    c.fillStyle = g; c.fillRect(x0 - 24, y - 42, x1 - x0 + 48, 48); c.globalCompositeOperation = "source-over";
+    for (let i = 0; i < n; i++) {
+      const bx = x0 + i * w, th = 13 + (i % 2) * 5, gr = c.createLinearGradient(0, y - th, 0, y); gr.addColorStop(0, "#ffb3c6"); gr.addColorStop(.5, "#ff3f6e"); gr.addColorStop(1, "#7a1030");
+      c.beginPath(); c.moveTo(bx, y); c.lineTo(bx + w * .5, y - th); c.lineTo(bx + w, y); c.closePath(); c.fillStyle = gr; c.fill(); c.lineWidth = 1.2; c.strokeStyle = "#1a0614"; c.stroke();
+    }
+    c.restore();
+  }
+}
+function drawPrompt(c, x, yTop, t) {
+  const rx = 17, ry = 13, bob = Math.sin(t * 2.6) * 4, cy = yTop - 14 - bob, glow = .55 + .45 * Math.sin(t * 3);
+  c.save();
+  c.shadowColor = `rgba(255,207,74,${glow})`; c.shadowBlur = 8 + 5 * glow;
+  c.fillStyle = "rgba(10,16,48,.92)"; c.strokeStyle = "#ffcf4a"; c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(x - rx + 6, cy - ry); c.lineTo(x + rx - 6, cy - ry); c.quadraticCurveTo(x + rx, cy - ry, x + rx, cy - ry + 6);
+  c.lineTo(x + rx, cy + ry - 6); c.quadraticCurveTo(x + rx, cy + ry, x + rx - 6, cy + ry);
+  c.lineTo(x + 4, cy + ry); c.lineTo(x, cy + ry + 9); c.lineTo(x - 2, cy + ry);
+  c.lineTo(x - rx + 6, cy + ry); c.quadraticCurveTo(x - rx, cy + ry, x - rx, cy + ry - 6);
+  c.lineTo(x - rx, cy - ry + 6); c.quadraticCurveTo(x - rx, cy - ry, x - rx + 6, cy - ry);
+  c.closePath(); c.fill(); c.stroke();
+  c.shadowBlur = 0; c.fillStyle = "#ffcf4a"; c.font = "bold 15px 'Chakra Petch',sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText("?", x, cy - 1);
+  c.restore();
+}
+/* Gema con corte de diamante: mitad clara arriba, oscura abajo, halo pulsante y destello. */
+function drawGem(c, x, y, sx, t) {
+  const h = 9, pulse = .5 + .5 * Math.sin(t * 3 + x);
+  c.save();
+  const glow = c.createRadialGradient(x, y, 0, x, y, 15);
+  glow.addColorStop(0, `rgba(140,255,225,${.32 + .16 * pulse})`); glow.addColorStop(1, "rgba(140,255,225,0)");
+  c.fillStyle = glow; c.beginPath(); c.arc(x, y, 15, 0, TAU); c.fill();
+  c.beginPath(); c.moveTo(x, y - h); c.lineTo(x + sx, y); c.lineTo(x - sx, y); c.closePath();
+  c.fillStyle = "rgba(196,255,242,.98)"; c.fill();
+  c.beginPath(); c.moveTo(x, y + h); c.lineTo(x + sx, y); c.lineTo(x - sx, y); c.closePath();
+  c.fillStyle = "rgba(60,205,175,.96)"; c.fill();
+  c.strokeStyle = "rgba(255,255,255,.85)"; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(x, y - h); c.lineTo(x + sx, y); c.lineTo(x, y + h); c.lineTo(x - sx, y); c.closePath(); c.stroke();
+  c.strokeStyle = "rgba(255,255,255,.5)"; c.beginPath(); c.moveTo(x, y - h); c.lineTo(x, y + h); c.stroke();
+  if (pulse > .82) { c.fillStyle = "rgba(255,255,255,.9)"; c.beginPath(); c.arc(x - sx * .35, y - h * .35, 1.3, 0, TAU); c.fill() }
+  c.restore();
+}
+
+/* Fondo extendido: el escenario es una franja panorámica (~11:1) y la pantalla es 16:9, así que arriba y abajo sobra espacio.
+   En vez de copias borrosas del mismo dibujo (que dejaban bandas oscuras y un corte duro), se prolonga el propio borde:
+   se estira una franja cercana al borde superior/inferior, se difumina, se oscurece poco a poco y se le agrega bruma
+   de nebulosa, así el mundo "sigue" hacia arriba y hacia abajo y llena toda la pantalla. */
+function buildBg(im, fx) {
+  const W = im.naturalWidth / RES, H = im.naturalHeight / RES, top = H * 3, bot = H * 2, iw = im.naturalWidth, ih = im.naturalHeight;
+  const c = document.createElement("canvas"); c.width = W; c.height = top + H + bot; const x = c.getContext("2d");
+  const soft = "filter" in x, band = Math.max(8, Math.round(ih * .022)), skip = Math.round(ih * .012);
+  x.drawImage(im, 0, top, W, H); // franja central (queda debajo del escenario nítido)
+  // arriba: franja del borde superior estirada
+  x.save(); if (soft) x.filter = "blur(7px)"; x.drawImage(im, 0, skip, iw, band, -12, 0, W + 24, top + 6); x.restore();
+  // abajo: franja justo encima del borde inferior (se evita la línea de luz del borde) estirada
+  x.save(); if (soft) x.filter = "blur(7px)"; x.drawImage(im, 0, ih - skip - band * 2, iw, band, -12, top + H - 6, W + 24, bot + 6); x.restore();
+  // oscurecer con la distancia (la lava y el agua conservan más brillo abajo: se sienten como continuar el piso)
+  const warm = fx === "lava" || fx === "water";
+  let g = x.createLinearGradient(0, 0, 0, top); g.addColorStop(0, "rgba(5,8,30,.94)"); g.addColorStop(.6, "rgba(5,8,30,.55)"); g.addColorStop(1, "rgba(5,8,30,.05)");
+  x.fillStyle = g; x.fillRect(0, 0, W, top);
+  g = x.createLinearGradient(0, top + H, 0, c.height); g.addColorStop(0, `rgba(5,8,30,${warm ? .1 : .25})`); g.addColorStop(1, `rgba(5,8,30,${warm ? .8 : .97})`);
+  x.fillStyle = g; x.fillRect(0, top + H, W, bot);
+  // bruma de nebulosa para romper lo liso (posiciones fijas por nivel)
+  x.globalCompositeOperation = "lighter"; let seed = Math.round(W) * 7 + 3; const rn = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const tint = { lava: "255,110,60", water: "60,200,255", cave: "130,90,255", space: "110,100,255" }[fx] || "110,100,255";
+  for (let i = 0; i < Math.round(W / 130); i++) {
+    const bx = rn() * W, by = rn() < .65 ? rn() * top : top + H + rn() * bot, br = 60 + rn() * 140, ga = x.createRadialGradient(bx, by, 0, bx, by, br);
+    ga.addColorStop(0, `rgba(${tint},${.05 + rn() * .05})`); ga.addColorStop(1, `rgba(${tint},0)`); x.fillStyle = ga; x.fillRect(bx - br, by - br, br * 2, br * 2);
+  }
+  x.globalCompositeOperation = "source-over";
+  c.top = top; return c;
+}
+// Polvo/bruma en primerísimo plano, por delante de todo (incluso el personaje): se mueve
+// un poco más rápido que la cámara, como desenfoque de profundidad de campo de cine.
+function makeBokeh(L, W, H) {
+  const n = []; for (let i = 0; i < 10; i++) n.push({ x: rnd(0, W), y: rnd(H * .3, H * .95), r: rnd(10, 30), a: rnd(.04, .1), s: rnd(.5, 1) });
+  return n;
+}
+/* ---------- Postprocesado: une el personaje y el escenario en una sola imagen ----------
+   Sin esto, un sprite PNG sobre un fondo pintado se ve "pegado" porque no comparte la luz
+   ni la atmósfera de la escena. Una viñeta + gradación de color + un bloom sutil (todo en
+   pantalla completa, después de dibujar el mundo) es la forma estándar de unificarlo. */
+const GRADE = { lava: "255,120,60", water: "60,170,255", cave: "150,100,255", space: "90,120,255" };
+const FG_TINT = { space: "4,8,30", cave: "8,6,30", lava: "30,6,6", water: "2,22,30" };
+function postFX(c, w, h, L) {
+  c.save();
+  // viñeta: oscurece las esquinas y centra la atención en la acción
+  const vr = Math.max(w, h);
+  const vg = c.createRadialGradient(w / 2, h * .46, vr * .25, w / 2, h * .46, vr * .72);
+  vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.4)");
+  c.fillStyle = vg; c.fillRect(0, 0, w, h);
+  // gradación de color: un tinte muy sutil del tono del bioma sobre toda la imagen
+  c.globalCompositeOperation = "overlay"; c.globalAlpha = .16;
+  c.fillStyle = `rgb(${GRADE[L.fx] || GRADE.space})`; c.fillRect(0, 0, w, h);
+  c.restore();
+  // bloom barato: una copia borrosa y reducida de lo ya dibujado, sumada con luz aditiva
+  if (!G.bloomCv) G.bloomCv = document.createElement("canvas");
+  const bw = Math.max(1, Math.round(w / 5)), bh = Math.max(1, Math.round(h / 5));
+  if (G.bloomCv.width !== bw) { G.bloomCv.width = bw; G.bloomCv.height = bh }
+  const bx = G.bloomCv.getContext("2d");
+  bx.clearRect(0, 0, bw, bh); if ("filter" in bx) bx.filter = "blur(1.5px)";
+  bx.drawImage(cv, 0, 0, bw, bh);
+  c.save(); c.globalCompositeOperation = "lighter"; c.globalAlpha = .3;
+  c.drawImage(G.bloomCv, 0, 0, w, h);
+  c.restore();
+}
+function draw() {
+  const w = cv.width, h = cv.height, im = (G.im = levelImg(G.L)); if (!im.complete || !im.naturalWidth) return;
+  const L = G.L, rowW = im.naturalWidth / RES, rowH = im.naturalHeight / RES, t = G.t;
+  if (!G.bgc) G.bgc = buildBg(im, L.fx);
+  const d = RS, Wc = w / d, Hc = h / d;
+  let zs = Math.min(Hc * .58 / rowH, Wc / (Wc < Hc ? 250 : 330)); // en vertical (celular) se acerca más: si no, el personaje se vería diminuto zs = Math.max(zs, Wc / rowW);
+  const s = zs * d, vw = w / s, rowPx = rowH * s;
+  let oy = h > rowPx ? (h - rowPx) * .55 : (h - rowPx) / 2;
+  // Cámara tipo Mario: ventana muerta (el personaje se mueve sin que la cámara reaccione) y, al salirse de ella,
+  // la cámara lo alcanza con suavidad; además mira hacia donde camina y sube un poco al saltar alto.
+  const nowMs = performance.now(), dtd = Math.min(.1, (nowMs - (G.camT || nowMs)) / 1000); G.camT = nowMs;
+  G.lead = G.lead == null ? .4 : G.lead + ((G.face > 0 ? .38 : .58) - G.lead) * (1 - Math.exp(-dtd * 2.5));
+  const dz = .08, camEase = 1 - Math.exp(-dtd * 7);
+  let camTarget;
+  if (G.camLock === "cups" && G.cups) camTarget = (Math.min(...G.cups.map(c => c.x)) + Math.max(...G.cups.map(c => c.x))) / 2 - vw / 2; // vasos: encuadra los 3
+  else { const cur = G.cam == null ? G.x - vw * G.lead : G.cam, lo = G.x - vw * (G.lead + dz), hi = G.x - vw * (G.lead - dz); camTarget = Math.max(lo, Math.min(hi, cur)) }
+  const tcam = Math.max(0, Math.min(rowW - vw, camTarget));
+  G.cam = G.cam == null || Math.abs(G.cam - tcam) > vw ? tcam : G.cam + (tcam - G.cam) * camEase;
+  const camYt = G.fly ? Math.max(-6, Math.min(6, (rowH * .5 - G.y) * .1)) : Math.max(-4, Math.min(16, (rowH * .55 - G.y) * .22));
+  G.camY = (G.camY || 0) + (camYt - (G.camY || 0)) * (1 - Math.exp(-dtd * 4));
+  oy += G.camY * s;
+  const cam = G.cam + (G.shake > 0 ? rnd(-3, 3) * G.shake * 3 : 0);
+  G.view = { s, cam, oy };
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#060a22"; ctx.fillRect(0, 0, w, h);
+  // Parallax: el fondo difuminado de arriba/abajo (ya borroso y oscurecido) se mueve un poco
+  // más despacio que la cámara, y las estrellas a un ritmo intermedio — eso da sensación de
+  // profundidad sin desalinear el escenario nítido, que sigue a la cámara al 100%.
+  const camBg = cam * .93, camMid = cam * .68;
+  ctx.setTransform(s, 0, 0, s, -camBg * s, oy);
+  ctx.drawImage(G.bgc, 0, -G.bgc.top);
+  ctx.setTransform(s, 0, 0, s, -camMid * s, oy);
+  const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+  ctx.globalCompositeOperation = "lighter";
+  if (G.fx) for (const st of G.fx.stars) { if (L.fx === "lava" && st.y > 0) continue; const a = .2 + .8 * Math.max(0, Math.sin(t * st.s * 1.7 + st.p)); ctx.fillStyle = `rgba(210,235,255,${a * .8})`; ctx.fillRect(st.x - .6, st.y - .6, 1.2 * st.s, 1.2 * st.s); if (a > .92) { ctx.fillRect(st.x - 3, st.y, 6, .6); ctx.fillRect(st.x, st.y - 3, .6, 6) } }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.setTransform(s, 0, 0, s, -cam * s, oy);
+  ctx.save();
+  if (!G.rowC || G.rowC.s !== s) { const rc = document.createElement("canvas"); const k = Math.min(s, 12000 / rowW); rc.width = Math.round(rowW * k); rc.height = Math.round(rowH * k); const rx = rc.getContext("2d"); rx.imageSmoothingQuality = "high"; rx.drawImage(im, 0, 0, rc.width, rc.height);
+    { const e1 = Math.max(2, rc.height * .09), e2 = Math.max(2, rc.height * .06); rx.globalCompositeOperation = "destination-out"; // los bordes se funden con la extensión: sin corte duro
+      let fg = rx.createLinearGradient(0, 0, 0, e1); fg.addColorStop(0, "rgba(0,0,0,1)"); fg.addColorStop(.5, "rgba(0,0,0,.45)"); fg.addColorStop(1, "rgba(0,0,0,0)"); rx.fillStyle = fg; rx.fillRect(0, 0, rc.width, e1);
+      fg = rx.createLinearGradient(0, rc.height - e2, 0, rc.height); fg.addColorStop(0, "rgba(0,0,0,0)"); fg.addColorStop(1, "rgba(0,0,0,1)"); rx.fillStyle = fg; rx.fillRect(0, rc.height - e2, rc.width, e2); rx.globalCompositeOperation = "source-over" }
+    rc.s = s; G.rowC = rc }
+  ctx.drawImage(G.rowC, 0, 0, rowW, rowH);
+  // ambiente
+  ctx.globalCompositeOperation = "lighter";
+  if (L.fx === "lava") {
+    const lg = ctx.createLinearGradient(0, rowH - 60, 0, rowH); lg.addColorStop(0, "rgba(255,80,0,0)"); lg.addColorStop(1, `rgba(255,110,20,${.18 + .12 * Math.sin(t * 2.2)})`);
+    ctx.fillStyle = lg; ctx.fillRect(0, rowH - 60, rowW, 60);
+    for (let i = 0; i < 14; i++) { const y = rowH - 40 + (i % 5) * 8, x = ((i * 137 + t * (20 + i * 3)) % (rowW + 200)) - 100; ctx.fillStyle = `rgba(255,200,80,${.12 + .1 * Math.sin(t * 3 + i)})`; ctx.beginPath(); ctx.ellipse(x, y + Math.sin(t * 2 + i) * 2, 40, 2.4, 0, 0, TAU); ctx.fill() }
+  }
+  if (L.fx === "water") {
+    for (let i = 0; i < 26; i++) { const y = rowH - 52 + (i % 7) * 7, x = ((i * 97 + t * (i % 2 ? 18 : -14)) % (rowW + 160) + rowW + 160) % (rowW + 160) - 80; ctx.fillStyle = `rgba(190,250,255,${.1 + .12 * Math.sin(t * 2.5 + i * 1.3)})`; ctx.beginPath(); ctx.ellipse(x, y, 26 + (i % 3) * 8, 1.6, 0, 0, TAU); ctx.fill() }
+  }
+  for (const p of G.parts) {
+    const f = 1 - p.t / p.life;
+    if (p.cloud) { const cg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r); cg.addColorStop(0, `rgba(${p.c},${f * .12})`); cg.addColorStop(1, `rgba(${p.c},0)`); ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill(); continue }
+    if (p.trail) { ctx.fillStyle = `rgba(${p.c},${Math.min(1, f * 1.5) * .8})`; ctx.fillRect(p.x - 5, p.y - p.r * f * .5, 10 + 8 * f, p.r * f); continue }
+    if (p.jet) { const jg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * f * 2.2); jg.addColorStop(0, `rgba(${p.c},${f * .9})`); jg.addColorStop(1, `rgba(${p.c},0)`); ctx.fillStyle = jg; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * f * 2.2, 0, TAU); ctx.fill(); continue }
+    const px = p.x + Math.sin(p.t * 3 + p.x) * 3;
+    if (p.glow) { const flick = .6 + .4 * Math.sin(p.t * 6 + p.x); const gg = ctx.createRadialGradient(px, p.y, 0, px, p.y, p.r * 4); gg.addColorStop(0, `rgba(${p.c},${f * .55 * flick})`); gg.addColorStop(1, `rgba(${p.c},0)`); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(px, p.y, p.r * 4, 0, TAU); ctx.fill(); ctx.fillStyle = `rgba(255,255,255,${f * .9 * flick})` }
+    else { ctx.fillStyle = `rgba(${p.c},${Math.min(1, f * 1.5) * .8})` }
+    ctx.beginPath(); p.ring ? ctx.arc(px, p.y, p.r * 1.4, 0, TAU) : ctx.arc(px, p.y, p.r, 0, TAU); ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // puentes de luz
+  const br = (L.bridges || []).concat(G.exitOn && L.exit ? [L.exit] : []);
+  for (const [x0, x1, y] of br) drawSlabs(ctx, x0, x1, y, t); // puente: losas de hielo flotantes, mismo estilo que las plataformas del arte
+  // guías de las plataformas móviles: línea punteada con su recorrido y un brillo en los extremos, para ver por dónde vienen
+  if (L.movers) for (const m of L.movers) {
+    const [a0, a1, wy] = m.walk, cx = (a0 + a1) / 2, ax = m.ax || 0, ay = m.ay || 0, gy = wy + 2, ph = (TAU * t / m.T + (m.ph || 0)), k = Math.sin(ph) * (m.mir ? -1 : 1);
+    ctx.save(); ctx.setLineDash([5, 7]); ctx.lineWidth = 1.6; ctx.strokeStyle = "rgba(120,225,255,.42)"; ctx.fillStyle = "rgba(160,240,255,.8)";
+    ctx.beginPath(); if (ax) { ctx.moveTo(cx - ax, gy + 12); ctx.lineTo(cx + ax, gy + 12) } if (ay) { ctx.moveTo(cx, wy - ay + 12); ctx.lineTo(cx, wy + ay + 12) } ctx.stroke(); ctx.setLineDash([]);
+    for (const e of ax ? [-1, 1] : [0]) for (const f of ay ? [-1, 1] : [0]) { ctx.beginPath(); ctx.arc(cx + e * ax, wy + f * ay + 12, 2.6, 0, TAU); ctx.fill() }
+    ctx.beginPath(); ctx.arc(cx + (ax ? k * ax : 0), wy + (ay ? Math.sin(ph) * ay : 0) + 12, 3.6, 0, TAU); ctx.fill(); ctx.restore();
+  }
+  // plataformas móviles
+  if (L.movers) for (const m of L.movers) { const im2 = spr(m.spr), r = OBJ[m.spr.split("_")[0]][m.spr.split("_")[1]], [dx, dy] = moverOff(m, t); if (im2.complete) { if (m.mir) { ctx.save(); ctx.translate(m.mx - (r[0] + r[2] / 2) + dx, r[1] + r[3] / 2 + dy); ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] / 2, -r[3] / 2, r[2], r[3]); ctx.restore() } else ctx.drawImage(im2, r[0] + (m.sx || 0) + dx, r[1] + dy, r[2], r[3]) } ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(80,220,255,${.18 + .12 * pulse})`; ctx.beginPath(); ctx.ellipse((m.walk[0] + m.walk[1]) / 2 + dx, r[1] + r[3] + dy - 6, (m.walk[1] - m.walk[0]) * .3, 5, 0, 0, TAU); ctx.fill(); ctx.restore() }
+  // obstáculos en movimiento
+  if (L.obst) for (const o of L.obst) {
+    const [ox, oy2, rot] = obstPos(o, t), im2 = spr(o.spr); if (!im2.complete) continue;
+    const dangerPulse = .5 + .5 * Math.sin(t * 5 + o.c[0]);
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    const dg = ctx.createRadialGradient(ox, oy2, 0, ox, oy2, o.c[2] * OBS * 1.15);
+    dg.addColorStop(0, `rgba(255,70,70,${.2 + .18 * dangerPulse})`); dg.addColorStop(1, "rgba(255,70,70,0)");
+    ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(ox, oy2, o.c[2] * OBS * 1.15, 0, TAU); ctx.fill();
+    ctx.restore();
+    const key = o.spr.split("_"); const r = OBJ[key[0]][key[1]]; ctx.save(); ctx.translate(ox, oy2); ctx.rotate(rot); if (o.at) ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] * OBS / 2, -r[3] * OBS / 2, r[2] * OBS, r[3] * OBS); ctx.restore();
+  }
+  drawHazards(ctx, L, t);
+  for (const b of L.blocks || []) drawBlock(ctx, b, t, L.fx);
+  // gemas
+  for (const g of G.gems) if (!g.got) { const sx = Math.abs(Math.cos(t * 2.4 + g.x)) * 7 + 1, yy = g.y + Math.sin(t * 3 + g.x) * 3; drawGem(ctx, g.x, yy, sx, t) }
+  // caja ?
+  if (L.box && L.box.spr && G.boxGone < 1) {
+    const key = L.box.spr.split("_"), r = OBJ[key[0]][key[1]], im2 = spr(L.box.spr), bob = Math.sin(t * 2.6) * 3.5, bx = r[0] + r[2] / 2 + (L.box.sx || 0), by = r[1] + r[3];
+    if (im2.complete) { ctx.save(); ctx.globalAlpha = 1 - G.boxGone; const sc = BOXS * (1 + G.boxGone * .6); ctx.translate(bx, by - r[3] * BOXS / 2 + bob); ctx.scale(sc / BOXS, sc / BOXS); ctx.drawImage(im2, -r[2] * BOXS / 2, -r[3] * BOXS / 2, r[2] * BOXS, r[3] * BOXS); ctx.restore() }
+    if (!G.answered) drawPrompt(ctx, L.box.x, by - r[3] * BOXS, t);
+  }
+  if (L.star && !G.star) { const key = L.star.spr.split("_"), r = OBJ[key[0]][key[1]], im2 = spr(L.star.spr); if (im2.complete) ctx.drawImage(im2, r[0] + (L.star.sx || 0) + r[2] * (1 - BOXS) / 2, r[1] + r[3] * (1 - BOXS) + Math.sin(t * 2.2 + 1) * 3.5, r[2] * BOXS, r[3] * BOXS) }
+  // vasos
+  if (G.cups) { for (const c of G.cups) if (c.i === G.cupHas && c.lift > 2) drawQBox(ctx, c.x, c.y, t); for (const c of G.cups) drawCup(ctx, c.x, c.y, c.lift, t);
+    if (G.cupPick) { ctx.save(); ctx.fillStyle = "#ffcf4a"; ctx.font = "bold 13px 'Chakra Petch',sans-serif"; ctx.textAlign = "center"; G.cups.slice().sort((a, b) => a.x - b.x).forEach((c, i) => ctx.fillText(String(i + 1), c.x, c.y - 76 - pulse * 4)); ctx.restore() } }
+  // portal
+  if (L.portal) drawPortal(ctx, L.portal.x, L.portal.y, (L.portal.s || 1) * PZ, t, G.portalOpen, "back");
+  if (G.trail.length) for (const tr of G.trail) { tr.a *= G.fly ? 0.9 : 0.8; ctx.fillStyle = `rgba(63,214,255,${tr.a * 0.5})`; ctx.fillRect(tr.x - 10, tr.y, 20, 3) }
+  // personaje
+  let f = 8, bob = 0, lean = 0, run = null, runImg = null;
+  if (G.fly) f = 5;
+  else if (!G.ground) f = G.jt < 0.08 ? 3 : G.vy < -150 ? 4 : G.vy < 150 ? 5 : 6;
+  else if (keys.down && !G.busy) f = 7;
+  else if (Math.abs(G.vx) > 1) { f = 0; lean = .06 * G.face; runImg = runSheetFor(sheet); if (runImg) lean = 0; else run = rigFor(sheet) }
+  else bob = Math.sin(t * 1.7) * 2.4; // respiración cuando está de pie quieto
+  if (G.absorb) f = 5;
+  if (!G.absorb) { // sombra bajo los pies
+    let gy = null; if (!G.fly) { for (const p of plats()) if (G.x >= p[0] - 6 && G.x <= p[1] + 6 && p[2] >= G.y - 1 && (gy === null || p[2] < gy)) gy = p[2] }
+    if (gy !== null) { const hgt = Math.max(0, gy - G.y), k = Math.max(.35, 1 - hgt / 160); ctx.save(); ctx.globalAlpha = .45 * k; const sg = ctx.createRadialGradient(G.x, gy, 0, G.x, gy, 26 * KR * k); sg.addColorStop(0, "rgba(0,0,20,.9)"); sg.addColorStop(1, "rgba(0,0,20,0)"); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(G.x, gy, 26 * KR * k, 6 * KR * k, 0, 0, TAU); ctx.fill(); ctx.restore() }
+  }
+  if (G.inv > 0 && Math.floor(t * 16) % 2) ctx.globalAlpha = 0.35;
+  if (G.emerge > 0) ctx.globalAlpha *= 1 - G.emerge * 0.85; // se desvanece al materializarse al llegar
+  ctx.save();
+  let px = G.x, py = G.y + bob, sc = K, absA = 0;
+  if (G.absorb) { // el portal te jala en espiral hacia el túnel: giras, te encoges y te desvaneces al final
+    const a0 = G.absorb, P = L.portal, s2 = (P.s || 1) * PZ, tx = P.x, ty = P.y - 52 * s2 + 22 * s2, sw = Math.sin(a0 * Math.PI) * 14 * s2, an = a0 * TAU * 1.3;
+    absA = a0 * a0 * (3 - 2 * a0); px += (tx - px) * absA + Math.cos(an) * sw * .5; py += (ty - py) * absA + Math.sin(an) * sw * .5; sc = K * (1 - absA * .93); ctx.globalAlpha *= 1 - Math.max(0, (a0 - .82) / .18);
+  }
+  ctx.translate(px, py); if (G.absorb) ctx.rotate(absA * TAU * 1.4); else if (G.emerge > 0) ctx.rotate(G.emerge * G.emerge * -.6);
+  const sq = (G.squash || 0) * .12; // positivo = aplasta al aterrizar, negativo = estira al despegar
+  if (G.fly) sc *= FLY_K;
+  if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
+  ctx.scale(G.face * sc * (1 + sq), sc * (1 - sq)); if (G.fly) ctx.rotate(.35 - G.flyTilt); else if (lean) ctx.rotate(lean);
+  if (runImg) { // 8 cuadros por ciclo de ~125 px recorridos: el pie no patina
+    const av = Object.values(AVATARS).find(a => a.run && sheet.src.endsWith(a.src)), i = Math.floor((((G.x * G.face / (125 * KR)) % 1) + 1) % 1 * 8);
+    ctx.drawImage(runImg, i * av.runW, 0, av.runW, CH, 8 - av.runA, -CH + 3, av.runW, CH);
+  } else if (run) drawRun(ctx, run, G.x * G.face / (103 * KR)); // fase ligada a la distancia: el pie no patina
+  else ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH);
+  ctx.restore(); ctx.globalAlpha = 1;
+  if (G.absorb && L.portal) drawPortal(ctx, L.portal.x, L.portal.y, (L.portal.s || 1) * PZ, t, G.portalOpen, "front"); // el arco del frente tapa al personaje: entra al túnel
+  // chispas
+  ctx.globalCompositeOperation = "lighter";
+  for (const b of G.burst) { const f = 1 - b.t / b.life; ctx.fillStyle = `rgba(${b.c},${b.big ? f * .35 : f})`; if (b.big) { ctx.beginPath(); ctx.arc(b.x, b.y, 2 + (1 - f) * 5, 0, TAU); ctx.fill() } else ctx.fillRect(b.x - 1.5, b.y - 1.5, 3, 3) }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.restore();
+  // Polvo en primerísimo plano: se mueve más rápido que la cámara (como algo muy cerca del
+  // "lente"), el truco clásico de profundidad de campo — por delante del personaje.
+  if (!G.bokeh) G.bokeh = makeBokeh(L, rowW, rowH);
+  const camNear = cam * 1.18;
+  ctx.setTransform(s, 0, 0, s, -camNear * s, oy);
+  for (const bk of G.bokeh) { const yy = bk.y + Math.sin(t * .4 * bk.s + bk.x) * 8; ctx.fillStyle = `rgba(210,235,255,${bk.a})`; ctx.beginPath(); ctx.arc(bk.x, yy, bk.r, 0, TAU); ctx.fill() }
+  // Siluetas de primer plano (como las plantas y rocas oscuras de los juegos de plataformas): pegadas
+  // al borde de la pantalla y más rápidas que la cámara; van debajo del escenario, nunca tapan la acción.
+  { const fgc = FG_TINT[L.fx] || FG_TINT.space, step = 190 * s, shift = (cam * 1.5 * s) % step, base = h + 2;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    for (let i = -1; i < w / step + 2; i++) {
+      const x0 = i * step - shift, sd = Math.floor((cam * 1.5 * s - shift) / step + i), r1 = Math.abs(Math.sin(sd * 12.9898) * 43758.5453) % 1, r2 = Math.abs(Math.sin(sd * 78.233) * 12345.678) % 1;
+      const hh = h * (.07 + .09 * r1), ww = step * (.3 + .35 * r2);
+      ctx.fillStyle = `rgba(${fgc},.92)`; ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x0 + ww * .15, base - hh * .45); ctx.lineTo(x0 + ww * .38, base - hh); ctx.lineTo(x0 + ww * .52, base - hh * .55); ctx.lineTo(x0 + ww * .7, base - hh * .8); ctx.lineTo(x0 + ww, base); ctx.closePath(); ctx.fill();
+    }
+    const fg2 = ctx.createLinearGradient(0, h - h * .16, 0, h); fg2.addColorStop(0, `rgba(${fgc},0)`); fg2.addColorStop(1, `rgba(${fgc},.55)`); ctx.fillStyle = fg2; ctx.fillRect(0, h - h * .16, w, h * .16); }
+  postFX(ctx, w, h, L);
+  // destello de golpe (rayos de luz y viñeta van en CSS: #fxov)
+  if (G.flash > 0) { ctx.fillStyle = `rgba(255,60,90,${G.flash * .25})`; ctx.fillRect(0, 0, w, h) }
+  if (G.warpFlash > 0) { ctx.fillStyle = `rgba(200,230,255,${Math.min(1, G.warpFlash) * .4})`; ctx.fillRect(0, 0, w, h) }
+}
+
+let hitStop = 0;
+// Congela la simulación unos milisegundos en momentos de impacto (acierto, golpe, derrota del robot);
+// es un truco barato de "game juice" que hace que esos golpes se sientan con más peso.
+function freeze(ms) { hitStop = Math.max(hitStop, ms); }
+function loop(ts) {
+  const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
+  if (hitStop > 0) { hitStop -= dt * 1000; if (running && G) draw(); requestAnimationFrame(loop); return }
+  if (running && G) { const n = Math.max(1, Math.ceil(dt / (1 / 60))); for (let i = 0; i < n; i++) step(dt / n); draw() }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* Juego de los vasos */
+let cupResolve = null;
+async function cupGame() {
+  const cups = G.cups;
+  G.camLock = "cups"; // la cámara deja de seguir al personaje y encuadra los 3 vasos completos
+  await say(["La pregunta está escondida debajo de uno de los vasos.", "¡Síguelo con la mirada! Los vasos se van a mover."]);
+  for (;;) {
+    G.cupHas = Math.floor(Math.random() * 3);
+    const c = cups[G.cupHas];
+    await tween(450, p => c.lift = p * 46); await wait(700); await tween(350, p => c.lift = 46 * (1 - p)); await wait(250);
+    const n = 8;
+    for (let k = 0; k < n; k++) {
+      let a = Math.floor(Math.random() * 3), b = (a + 1 + Math.floor(Math.random() * 2)) % 3;
+      const A = cups[a], B = cups[b], ax = A.x, bx = B.x, dur = 420 - k * 22;
+      await tween(dur, (p, raw) => { A.x = ax + (bx - ax) * p; B.x = bx + (ax - bx) * p; A.lift = Math.sin(raw * Math.PI) * 18 })
+      A.lift = 0;
+    }
+    G.cupPick = true; toast("Toca el vaso donde está la pregunta (o usa 1, 2, 3)");
+    const pick = await new Promise(r => cupResolve = r);
+    G.cupPick = false;
+    const ch = cups[pick];
+    await tween(400, p => ch.lift = p * 46);
+    if (pick === G.cupHas) { boom(ch.x, ch.y - 20, "200,150,255"); freeze(90); sfxOk(); await wait(500); G.camLock = null; return }
+    toast("¡Vacío! Estaba en otro vaso."); sfxWrong(); const ok = cups[G.cupHas]; await tween(400, p => ok.lift = p * 46); await wait(900);
+    await Promise.all([tween(350, p => ch.lift = 46 * (1 - p)), tween(350, p => ok.lift = 46 * (1 - p))]);
+    await say(["Casi. Vamos otra vez, fíjate bien."]);
+  }
+}
+function pickCup(i) { if (cupResolve && G.cupPick) { const r = cupResolve; cupResolve = null; r(i) } }
+function pickSlot(n) { const sorted = G.cups.slice().sort((a, b) => a.x - b.x); if (sorted[n]) pickCup(sorted[n].i) }
+
+async function playArea(area) {
+  const A = AREA[area];
+  carryLives = MAX_LIVES; areaGems0[area] = gemsTotal; // intento nuevo: vidas completas y gemas del inicio del recorrido
+  let fin;
+  await transition(() => { show("s-game"); resize(); fin = startLevel(area, 0) });
+  await say(A.intro); G.busy = false; await fin;
+  for (let i = 0; i < 3; i++) {
+    const lv = A.levels[i];
+    await transition(() => { fin = startLevel(area, i + 1) });
+    await say(lv.say); G.busy = false;
+    let outcome;
+    do {
+      await new Promise(r => G.onBox = r);
+      if (G.L.cups) await cupGame();
+      outcome = await ask(pickQ(lv.q));
+      if (outcome === "restart") { G.busy = false; await say(["Vuelve a la caja ? para intentarlo de nuevo."]) }
+    } while (outcome === "restart");
+    G.answered = true; G.exitOn = true;
+    if (G.L.box && G.L.box.spr) { const L = G.L; boom(L.box.x, 40, "255,230,120"); tween(500, p => G.boxGone = p) }
+    if (G.cups) { const cs = G.cups; tween(600, p => cs.forEach(c => c.lift = 46 + p * 120)).then(() => { if (G && G.cups === cs) G.cups = null }) }
+    openPortal();
+    await say(lv.end.concat("¡Se abrió un portal! Entra en él para continuar.")); G.busy = false; await fin;
+  }
+  await transition(() => { fin = startLevel(area, 4) });
+  G.busy = false; await fin;
+  done(area);
+  running = false;
+  await say(A.meta);
+  if (A.next === "geo") startGeo(); else playArea(A.next);
+}
+
+/* Pantalla de portal (transiciones entre escenas) */
+const pov = $("#portal-ov"), pcv = $("#portal-cv"), pctx = pcv.getContext("2d");
+let povRun = false;
+function portalScreen(title, btn) {
+  return new Promise(res => {
+    $("#pov-title").textContent = title; $("#pov-go").textContent = btn || "Entrar al portal";
+    pov.hidden = false; povRun = true; let open = 0, zoom = 1, t0 = performance.now(), leaving = false;
+    const r = pcv.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); pcv.width = r.width * d; pcv.height = r.height * d;
+    (function k(n) {
+      if (!povRun) return; const t = (n - t0) / 1000; open = Math.min(1, t / .9);
+      pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, pcv.width, pcv.height);
+      const s = Math.min(pcv.width / 140, pcv.height / 178) * zoom;
+      drawPortal(pctx, pcv.width / 2, pcv.height / 2 + 52 * s, s, t, ease(open));
+      if (leaving) { zoom *= 1.09; pctx.fillStyle = `rgba(234,246,255,${Math.min(1, (zoom - 1) / 6)})`; pctx.fillRect(0, 0, pcv.width, pcv.height); if (zoom > 8) { povRun = false; pov.hidden = true; res(); return } }
+      requestAnimationFrame(k);
+    })(t0);
+    $("#pov-go").onclick = () => { leaving = true };
+    $("#pov-go").focus({ preventScroll: true });
+  });
+}
+function portalWarp() { return portalScreen("¡Meta alcanzada!", "Cruzar el portal") }
+
+/* ---------- Geometría ---------- */
+const FIG = {
+  cuadrado: '<rect x="20" y="20" width="60" height="60"/>',
+  rectangulo: '<rect x="8" y="28" width="84" height="46"/>',
+  triangulo: '<path d="M50 14 L88 82 L12 82 Z"/>',
+  circulo: '<circle cx="50" cy="50" r="36"/>',
+  trapecio: '<path d="M30 26 L70 26 L90 78 L10 78 Z"/>',
+  rombo: '<path d="M50 10 L84 50 L50 90 L16 50 Z"/>',
+  paralelogramo: '<path d="M30 28 L92 28 L70 76 L8 76 Z"/>'
+};
+const NAMES = { cuadrado: "Cuadrado", rectangulo: "Rectángulo", triangulo: "Triángulo", circulo: "Círculo", trapecio: "Trapecio", rombo: "Rombo", paralelogramo: "Paralelogramo" };
+const fr = (a, b) => `<span class="frac"><span>${a}</span><span>${b}</span></span>`;
+const FORM = {
+  cuadrado: ["l2", "A = l²"], rectangulo: ["bh", "A = b · h"], triangulo: ["bh2", `A = ${fr("b · h", "2")}`], circulo: ["pr2", "A = π · r²"],
+  trapecio: ["Bbh2", `A = ${fr("(B + b) · h", "2")}`], rombo: ["Dd2", `A = ${fr("D · d", "2")}`], paralelogramo: ["bh", "A = b · h"]
+};
+const SLOT_X = [248, 416, 581, 744, 906, 1068, 1231], SLOT_Y = [242, 438];
+const svgFig = k => `<svg viewBox="0 0 100 100">${FIG[k]}</svg>`;
+
+function startGeo() {
+  setTheme("geo");
+  transition(async () => {
+    show("s-geo");
+    const st = $("#geo-stage"); st.querySelectorAll(".gcard").forEach(c => c.remove());
+    const cards = [];
+    for (const k in FIG) { cards.push({ key: FORM[k][0], html: `${svgFig(k)}<span class="nm">${NAMES[k]}</span>`, label: NAMES[k] }); cards.push({ key: FORM[k][0], html: `<span class="fx">${FORM[k][1]}</span>`, label: "Fórmula" }) }
+    for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]] }
+    let open = [], left = 7, lock = false;
+    const setLeft = () => { $("#geo-left").textContent = `${left}/7`; $("#geo-left2").textContent = `Pares restantes ${left}/7` };
+    setLeft();
+    cards.forEach((c, i) => {
+      const b = document.createElement("button"); b.className = "gcard"; b.setAttribute("aria-label", "Carta boca abajo");
+      b.style.left = (SLOT_X[i % 7] / 16) + "%"; b.style.top = (SLOT_Y[Math.floor(i / 7)] / 8.47) + "%";
+      b.innerHTML = `<div class="in"><div class="b">?</div><div class="f">${c.html}</div></div>`;
+      b.onclick = async () => {
+        if (lock || b.classList.contains("up") || b.classList.contains("got")) return;
+        b.classList.add("up"); b.setAttribute("aria-label", c.label); open.push([b, c]);
+        if (open.length < 2) return;
+        lock = true; const [[b1, c1], [b2, c2]] = open; open = [];
+        if (c1.key === c2.key && (c1.label === "Fórmula") !== (c2.label === "Fórmula")) {
+          await wait(350); b1.classList.add("got"); b2.classList.add("got"); left--; setLeft(); lock = false;
+          if (!left) geoWin();
+        } else { await wait(900); b1.classList.remove("up"); b2.classList.remove("up"); lock = false }
+      };
+      st.appendChild(b);
+    });
+  }).then(() => say(["Llegaste a la última prueba.", "Ahora vamos a trabajar con Geometría.", "¡Encuentra las cartas que coinciden! Junta cada figura geométrica con su fórmula de área."]));
+}
+async function geoWin() {
+  await say(["¡Encontraste todos los pares!", "Para este reto vas a utilizar la calculadora.", "Lee bien el problema y usa la fórmula que corresponda."]);
+  await ask({ tag: "Geometría · Reto 1", text: "Un rectángulo tiene 8 cm de largo y 5 cm de ancho. ¿Cuál es su área?", opts: ["13 cm²", "40 cm²", "26 cm²"], ok: 1, calc: true,
+    tip: "Recuerda que para encontrar el área de un rectángulo multiplicamos el largo por el ancho. Puedes utilizar la calculadora para comprobar tu respuesta.",
+    right: ["¡Correcto!", "Ya superaste la primera parte del reto."], wrong: ["No es esa.", "Multiplica el largo por el ancho: 8 × 5.", "Inténtalo otra vez."] });
+  done("geo");
+  await say(["¡Geometría completada!", "Se abrió un portal hacia la sala de programación."]);
+  await portalScreen("Portal a la sala de programación");
+  await say(["Ahora viene el reto de programación.", "Vas a construir tu propia calculadora de áreas para derrotar al robot malvado."]);
+  startCode();
+}
+
+/* ---------- Programación ---------- */
+const PY = $("#py-src").textContent.replace(/^\n/, "");
+function hl(src) {
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  return src.split("\n").map(line => {
+    const ci = line.indexOf("#"); let code = line, com = "";
+    if (ci >= 0 && !/["']/.test(line.slice(0, ci))) { code = line.slice(0, ci); com = line.slice(ci) }
+    let out = esc(code).replace(/("[^"]*")/g, '<span class="st">$1</span>')
+      .replace(/\b(def|if|elif|else|return|for|in|print|input|int|float|str|enumerate|and|or|not)\b(?![^<]*<\/span>)/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+(?:\.\d+)?)\b(?![^<]*<\/span>)/g, '<span class="nu">$1</span>');
+    return out + (com ? `<span class="cm">${esc(com)}</span>` : "");
+  }).join("\n");
+}
+const CASES = [["cuadrado", [4], 16], ["rectangulo", [8, 5], 40], ["triangulo", [6, 4], 12], ["circulo", [2], 12.5664], ["trapecio", [10, 6, 4], 32], ["rombo", [8, 6], 24], ["paralelogramo", [7, 3], 21]];
+const HARNESS = `
+_casos = [${CASES.map(([f, d, e]) => `("${f}", (${d.join(", ")},), ${e})`).join(", ")}]
+for _f, _d, _e in _casos:
+    try:
+        _r = calcular_area(_f, *_d)
+        if isinstance(_r, (int, float)) and abs(_r - _e) < 0.05:
+            print("OK|" + _f + "|" + str(_r))
+        else:
+            print("MAL|" + _f + "|" + str(_r) + "|" + str(_e))
+    except Exception as _ex:
+        print("ERR|" + _f + "|" + str(_ex))
+`;
+let hp = 7, codeReady = false;
+function setStep(n) { document.querySelectorAll("#steps li").forEach(li => li.classList.toggle("done", +li.dataset.s <= n)) }
+function startCode() {
+  setTheme("prog");
+  transition(() => {
+    show("s-code");
+    if (!codeReady) {
+      codeReady = true;
+      $("#code-view").innerHTML = hl(PY);
+      $("#figs").innerHTML = CASES.map(([k]) => `<div data-f="${k}">${svgFig(k)}<span>${NAMES[k]}</span></div>`).join("");
+      const v = $("#video"), url = `https://drive.google.com/file/d/${VIDEO_ID}/view`;
+      if (!framed) v.insertAdjacentHTML("beforeend", `<iframe src="https://drive.google.com/file/d/${VIDEO_ID}/preview" allow="autoplay; fullscreen" allowfullscreen title="Video guía"></iframe>`);
+      v.insertAdjacentHTML("beforeend", `<a class="btn" href="${url}" target="_blank" rel="noopener" id="b-video">▶ Abrir video guía</a>`);
+      $("#b-video").addEventListener("click", startWatch);
+    }
+    if (me() && me().progress.video) unlockCode();
+    hp = 7; updHP(); $("#boss").classList.remove("dead");
+  }).then(() => say(["¡Mira el video, sigue los pasos y programa una calculadora de áreas en Visual Studio Code!", "El código de la cajita está bloqueado: se desbloquea cuando termines de ver el video.", "Luego cópialo, pégalo en VS Code y ejecútalo.", "Cuando funcione, pega tu código aquí y presiona «Compilar y atacar».", "Cada figura que calcule bien le quita energía al robot malvado."]));
+}
+/* ---------- Bloqueo del código hasta ver el video ---------- */
+const VIDEO_MIN_SEC = 180;          // tiempo mínimo (segundos) antes de desbloquear; ajústalo a la duración del video
+let watchStart = 0, watchTimer = null, codeUnlocked = false;
+function startWatch() {
+  if (codeUnlocked || watchStart) return;
+  watchStart = Date.now();
+  watchTimer = setInterval(() => {
+    const s = (Date.now() - watchStart) / 1000, left = Math.max(0, Math.ceil(VIDEO_MIN_SEC - s));
+    $("#lock-bar").style.width = Math.min(100, s / VIDEO_MIN_SEC * 100) + "%";
+    $("#lock-msg").textContent = left ? `Sigue viendo el video… se desbloquea en ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "";
+    if (!left) unlockCode();
+  }, 500);
+}
+function unlockCode() {
+  if (codeUnlocked) return;
+  codeUnlocked = true; clearInterval(watchTimer);
+  $("#codebox").classList.remove("locked");
+  const b = $("#b-copy"); b.disabled = false; b.textContent = "Copiar código";
+  setStep(1);
+  const u = me(); if (u && !u.progress.video) { u.progress.video = true; save() }
+  if (document.getElementById("s-code") && !$("#s-code").hidden && watchStart && dlg.hidden) say(["¡Terminaste el video!", "El código ya está desbloqueado. Cópialo y prográmalo en VS Code."]);
+}
+// Detecta cuando la persona hace clic dentro del video incrustado (el iframe toma el foco)
+window.addEventListener("blur", () => setTimeout(() => { const a = document.activeElement; if (a && a.tagName === "IFRAME" && a.closest("#video")) startWatch() }, 0));
+// Mientras está bloqueado, no se puede copiar, seleccionar ni arrastrar el código
+["copy", "cut", "contextmenu", "dragstart", "selectstart"].forEach(ev => document.addEventListener(ev, e => {
+  if (!codeUnlocked && e.target && e.target.closest && e.target.closest("#codebox")) e.preventDefault();
+  if (!codeUnlocked && ev === "copy") { const s = getSelection(); if (s && s.rangeCount && $("#codebox").contains(s.getRangeAt(0).commonAncestorContainer)) e.preventDefault() }
+}));
+function updHP() { $("#hp").style.width = (hp / 7 * 100) + "%"; $("#pbar").style.width = ((7 - hp) / 7 * 100) + "%" }
+$("#b-copy").addEventListener("click", async () => {
+  const b = $("#b-copy");
+  if (!codeUnlocked) return;
+  try { await navigator.clipboard.writeText(PY); b.textContent = "¡Copiado!" }
+  catch (e) { const r = document.createRange(); r.selectNodeContents($("#code-view")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Texto seleccionado · Ctrl+C" }
+  setStep(2); setTimeout(() => b.textContent = "Copiar código", 2200);
+});
+function term(html) { $("#term").innerHTML = html }
+function runPython(src) {
+  return new Promise((res, rej) => {
+    if (!window.Sk) return rej(new Error("NOLOAD"));
+    let out = "";
+    Sk.configure({ output: t => out += t, read: x => { if (!Sk.builtinFiles || !Sk.builtinFiles.files[x]) throw "No se encontró " + x; return Sk.builtinFiles.files[x] }, __future__: Sk.python3, inputfun: () => "1", inputfunTakesPrompt: true, execLimit: 5000 });
+    Sk.misceval.asyncToPromise(() => Sk.importMainWithBody("<stdin>", false, src, true)).then(() => res(out), e => rej(e));
+  });
+}
+$("#b-run").addEventListener("click", async () => {
+  const code = $("#paste").value;
+  if (!code.trim()) { term('<span class="no">No hay código. Pega aquí el código de tu calculadora de áreas.</span>'); $("#paste").focus(); return }
+  setStep(3); $("#b-run").disabled = true;
+  term('<span class="dim">$ python main.py\nCompilando…</span>');
+  let out;
+  try { out = await runPython('__name__ = "xyla_prueba"\n' + code + "\n" + HARNESS) }
+  catch (e) {
+    $("#b-run").disabled = false;
+    if (e && e.message === "NOLOAD") { showFallback(); return }
+    let msg = String(e && e.toString ? e.toString() : e);
+    msg = msg.replace(/line (\d+)/g, (m, n) => "línea " + Math.max(1, n - 1));
+    term(`<span class="no">Error al compilar:\n${msg.replace(/</g, "&lt;")}</span>\n<span class="dim">Revisa la indentación y que la función se llame calcular_area.</span>`);
+    return;
+  }
+  const lines = out.trim().split("\n").filter(Boolean); let html = '<span class="dim">$ python main.py</span>\n', okN = 0;
+  for (const l of lines) {
+    const [st, f, got, exp] = l.split("|");
+    if (st === "OK") { okN++; html += `<span class="ok">✔ ${NAMES[f]}: ${got}</span>\n` }
+    else if (st === "MAL") html += `<span class="no">✘ ${NAMES[f]}: dio ${got}, se esperaba ${exp}</span>\n`;
+    else html += `<span class="no">✘ ${NAMES[f]}: ${String(got).replace(/</g, "&lt;")}</span>\n`;
+  }
+  term(html + `\n${okN}/7 figuras correctas`);
+  await attack(lines.map(l => l.split("|")));
+  $("#b-run").disabled = false;
+});
+async function attack(res) {
+  const boss = $("#boss");
+  for (const [st, f] of res) {
+    const el = document.querySelector(`#figs [data-f="${f}"]`);
+    if (st === "OK" && el && !el.classList.contains("lit")) {
+      el.classList.add("lit"); hp = Math.max(0, hp - 1); updHP(); sfxHit();
+      boss.classList.remove("hit"); void boss.offsetWidth; boss.classList.add("hit"); await wait(420);
+    }
+  }
+  if (hp > 0) { await say(["¡JA, JA! Todavía me queda energía.", "Revisa las figuras en rojo de la terminal y vuelve a compilar."], "guardian"); return }
+  setStep(4); boss.classList.add("dead"); sfxWin(); await wait(500);
+  await finalChallenge();
+}
+function showFallback() {
+  const fb = $("#fallback"); fb.hidden = false;
+  term('<span class="no">No se pudo cargar el compilador de Python en esta página (se necesita internet).</span>\n<span class="dim">Usa el modo manual de abajo con los resultados de tu programa en VS Code.</span>');
+  const q = [["trapecio", "Trapecio: base mayor 10, base menor 6, altura 4", 32], ["rombo", "Rombo: diagonal mayor 8, diagonal menor 6", 24], ["circulo", "Círculo: radio 2", 12.5664]];
+  fb.innerHTML = `<div class="label">Modo manual · escribe lo que mostró tu programa</div>` + q.map(([k, t], i) => `<div class="field"><label for="fb${i}">${t}</label><input id="fb${i}" inputmode="decimal"></div>`).join("") + `<button class="btn" id="fb-go">Atacar</button>`;
+  $("#fb-go").onclick = async () => {
+    const r = q.map(([k, , e], i) => { const v = parseFloat($("#fb" + i).value.replace(",", ".")); return Math.abs(v - e) < 0.05 });
+    if (r.every(Boolean)) await attack(CASES.map(([k]) => ["OK", k]));
+    else await say(["Alguno de los resultados no coincide.", "Ejecuta tu programa otra vez y revisa los datos."], "guardian");
+  };
+}
+async function finalChallenge() {
+  await say(["¡Espera!", "Has llegado hasta aquí, pero todavía falta una última prueba.", "Si quieres conseguir el certificado, tendrás que superar este reto."], "guardian");
+  await say(["Es el último desafío.", "Concéntrate y usa la calculadora si la necesitas."]);
+  await ask({ tag: "Reto final", text: "Un terreno rectangular tiene 12 metros de largo y 7 metros de ancho. ¿Cuál es su perímetro?", opts: ["19 m", "38 m", "84 m"], ok: 1, calc: true,
+    tip: "Fórmula: P = 2 × (largo + ancho)",
+    right: ["P = 2 × (12 + 7) = 38 m."], wrong: ["No es esa.", "El perímetro suma todos los lados: P = 2 × (largo + ancho).", "Inténtalo otra vez."] });
+  await say(["¡Correcto!", "Has superado el reto."], "guardian");
+  await say(["¡Lo lograste!", "Completaste las tres áreas de XYLA.", "Ahora puedes obtener tu certificado."]);
+  done("prog");
+  await portalScreen("Portal al certificado");
+  openCert();
+}
+
+/* ---------- Certificado ---------- */
+let confettiOn = false;
+function openCert() {
+  setTheme(null);
+  transition(() => { show("s-cert"); $("#cert-intro").hidden = false; $("#cert-view").hidden = true; fillCert() })
+    .then(() => { confetti(); sfxWin(); say(["¡Felicidades!", "Completaste todos los retos de XYLA.", "Ahora puedes ver tu certificado."]) });
+}
+function fillCert() {
+  const u = me(); $("#c-name").textContent = u ? u.name : "Jugador";
+  const d = u && u.progress.date ? new Date(u.progress.date) : new Date();
+  $("#c-date").textContent = d.toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric" });
+}
+function confetti() {
+  const c = $("#confetti"), x = c.getContext("2d"); c.width = c.clientWidth; c.height = c.clientHeight;
+  const P = Array.from({ length: 140 }, () => ({ x: Math.random() * c.width, y: -Math.random() * c.height, v: 1.5 + Math.random() * 3, r: Math.random() * 6, c: ["#ffcf4a", "#3fd6ff", "#45f5a1", "#a46bff", "#ff4f6e"][Math.random() * 5 | 0] }));
+  confettiOn = true; let n = 0;
+  (function f() { if (!confettiOn || n++ > 600) { x.clearRect(0, 0, c.width, c.height); return } x.clearRect(0, 0, c.width, c.height); for (const p of P) { p.y += p.v; p.x += Math.sin((p.y + p.r * 40) / 40); if (p.y > c.height) p.y = -10; x.fillStyle = p.c; x.fillRect(p.x, p.y, 6, 10) } requestAnimationFrame(f) })();
+}
+$("#b-seecert").onclick = () => { $("#cert-intro").hidden = true; $("#cert-view").hidden = false };
+$("#b-home2").onclick = $("#b-home3").onclick = () => { confettiOn = false; goHome() };
+async function certCanvas() {
+  try { await document.fonts.ready } catch (e) {}
+  const u = me(), c = document.createElement("canvas"); c.width = 1414; c.height = 1000; const x = c.getContext("2d");
+  const g = x.createRadialGradient(707, 0, 100, 707, 300, 1100); g.addColorStop(0, "#12236a"); g.addColorStop(1, "#070d30"); x.fillStyle = g; x.fillRect(0, 0, 1414, 1000);
+  x.strokeStyle = "#ffcf4a"; x.lineWidth = 8; x.strokeRect(30, 30, 1354, 940); x.lineWidth = 2; x.strokeRect(56, 56, 1302, 888);
+  x.textAlign = "center"; x.fillStyle = "#ffcf4a"; x.font = "600 28px 'Chakra Petch', sans-serif"; x.fillText("C E R T I F I C A D O   D E   L O G R O", 707, 200);
+  x.fillStyle = "#eaf6ff"; x.shadowColor = "#3fd6ff"; x.shadowBlur = 30; x.font = "700 110px 'Chakra Petch', sans-serif"; x.fillText("XYLA", 707, 340); x.shadowBlur = 0;
+  x.font = "28px Nunito, sans-serif"; x.fillText("Se otorga el presente certificado a", 707, 440);
+  x.font = "700 72px 'Chakra Petch', sans-serif"; x.fillText(u ? u.name : "Jugador", 707, 540);
+  x.strokeStyle = "#ffcf4a"; x.lineWidth = 2; x.beginPath(); x.moveTo(380, 565); x.lineTo(1034, 565); x.stroke();
+  x.font = "26px Nunito, sans-serif"; x.fillText("por completar con éxito los retos de Operaciones Aritméticas,", 707, 640); x.fillText("Álgebra, Geometría y Programación.", 707, 680);
+  x.fillStyle = "#93acd9"; x.font = "24px Nunito, sans-serif"; x.fillText("Fecha: " + $("#c-date").textContent + "   ·   💎 " + gemsTotal + " gemas", 707, 800);
+  x.save(); x.translate(1180, 820); x.rotate(-.2); x.strokeStyle = "#ffcf4a"; x.lineWidth = 3; x.beginPath(); x.arc(0, 0, 80, 0, 7); x.stroke(); x.fillStyle = "#ffcf4a"; x.font = "700 30px 'Chakra Petch', sans-serif"; x.fillText("XYLA", 0, 0); x.fillText("★★★", 0, 36); x.restore();
+  return new Promise(r => c.toBlob(r, "image/png"));
+}
+let dlCap;
+async function downloadsCap() { if (dlCap !== undefined) return dlCap; try { dlCap = window.claude && window.claude.use ? await window.claude.use("downloads") : null } catch (e) { dlCap = null } return dlCap }
+function showCertImage(blob, msg) {
+  const url = URL.createObjectURL(blob), m = document.createElement("div"); m.className = "certmodal";
+  m.innerHTML = `<div class="label" style="font-size:1rem">Tu certificado</div><img alt="Certificado XYLA" src="${url}"><p>${msg}</p><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn gold" href="${url}" download="certificado-xyla.png" style="text-decoration:none">Descargar</a><button class="btn" type="button">Cerrar</button></div>`;
+  m.querySelector("button").onclick = () => m.remove();
+  $("#app").appendChild(m);
+}
+$("#b-dl").onclick = async () => {
+  const b = $("#b-dl"), note = $("#dl-note"); b.disabled = true; note.textContent = "Preparando la imagen…";
+  const blob = await certCanvas();
+  const hint = "Si no se descargó, mantén presionada la imagen (celular) o haz clic derecho sobre ella (computadora) y elige «Guardar imagen».";
+  try {
+    if (!framed) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "certificado-xyla.png"; document.body.appendChild(a); a.click(); a.remove(); note.textContent = "Certificado descargado." }
+    else {
+      const cap = await downloadsCap();
+      if (cap) { try { await cap.save({ filename: "certificado-xyla.png", data: blob }); note.textContent = "Certificado descargado." } catch (e) { if (e && e.code === "declined") note.textContent = "Descarga cancelada."; else { note.textContent = ""; showCertImage(blob, hint) } } }
+      else { note.textContent = ""; showCertImage(blob, hint) }
+    }
+  } catch (e) { note.textContent = ""; showCertImage(blob, hint) }
+  b.disabled = false;
+};
+
+/* ---------- Home ---------- */
+const TILES = [
+  { k: "arit", t: "Operaciones Aritméticas", d: "3 niveles · saltos y vuelo", pic: "arit2", go: () => playArea("arit") },
+  { k: "alg", t: "Álgebra", d: "3 niveles · incógnitas y ecuaciones", pic: "alg2", go: () => playArea("alg"), need: "arit" },
+  { k: "geo", t: "Geometría", d: "Memoria de fórmulas y calculadora", pic: "geo", go: startGeo, need: "alg" },
+  { k: "prog", t: "Programación", d: "Calculadora de áreas vs. robot malvado", pic: "alg3", go: startCode, need: "geo" }
+];
+function renderHome() {
+  const u = me(); $("#h-name").textContent = u.name; applyAvatar(u.avatar);
+  const all = TILES.every(t => u.progress[t.k]);
+  $("#tiles").innerHTML = TILES.map((t, i) => {
+    const ok = u.progress[t.k], lock = t.need && !u.progress[t.need];
+    return `<button class="tile ${ok ? "done" : ""}" data-i="${i}" ${lock ? "disabled" : ""}><div class="pic" style="background-image:url(assets/${t.pic}.jpg)"></div><span class="state">${ok ? "COMPLETADO" : lock ? "BLOQUEADO" : "JUGAR"}</span><div class="body"><span class="label">Área ${i + 1}</span><h3>${t.t}</h3><small>${t.d}</small></div></button>`;
+  }).join("") + (all ? `<button class="tile done" data-cert="1"><div class="pic" style="background-image:url(assets/alg5.jpg)"></div><span class="state">DESBLOQUEADO</span><div class="body"><span class="label">Premio</span><h3>Certificado 🎓</h3><small>Ver tu certificado de XYLA</small></div></button>` : "");
+  document.querySelectorAll("#tiles .tile").forEach(b => b.onclick = () => b.dataset.cert ? openCert() : TILES[+b.dataset.i].go());
+}
+function goHome(first) {
+  running = false; dlg.hidden = true; qm.hidden = true; setTheme(null);
+  transition(() => { show("s-home"); renderHome() }).then(() => {
+    const u = me(); if (!first || u.progress.arit) return;
+    say(["Este es el menú principal de XYLA.", "Aquí puedes ver las áreas que tendrás que completar.", "Comenzaremos con Operaciones Aritméticas.", "Cuando termines todas las áreas podrás conseguir tu certificado."]);
+  });
+}
+["#g-menu", "#geo-menu", "#code-menu"].forEach(s => $(s).onclick = () => goHome());
+$("#b-avatar").onclick = () => avatarMenu();
+$("#b-logout").onclick = () => { mem.session = null; save(); transition(() => show("s-login")) };
+
+/* ---------- Registro / sesión ---------- */
+let regAvatar = "nina";
+function wirePicker(root, cur, onPick) {
+  root.querySelectorAll(".av").forEach(b => { b.setAttribute("aria-pressed", b.dataset.av === cur); b.onclick = () => { root.querySelectorAll(".av").forEach(x => x.setAttribute("aria-pressed", x === b)); onPick(b.dataset.av) } });
+}
+wirePicker($("#r-av"), "nina", k => regAvatar = k);
+function avatarMenu() {
+  const u = me(), m = document.createElement("div"); m.className = "avmodal";
+  m.innerHTML = `<div class="panel"><h2 style="font-size:1.4rem">Elige tu avatar</h2><div class="avpick">${Object.entries(AVATARS).map(([k, a]) => `<button type="button" class="av" data-av="${k}"><div class="nina" style="--avatar:url(${a.src})"></div>${a.name}</button>`).join("")}</div><button class="btn gold" type="button" id="av-ok">Listo</button></div>`;
+  let pick = u.avatar || "nina";
+  wirePicker(m, pick, k => { pick = k; applyAvatar(k) });
+  m.querySelector("#av-ok").onclick = () => { u.avatar = pick; save(); applyAvatar(pick); m.remove() };
+  $("#app").appendChild(m);
+}
+$("#b-start").onclick = () => { dlg.hidden = true; transition(() => show("s-reg")).then(() => say(["Antes de empezar, crea tu cuenta para guardar tu progreso."])) };
+$("#b-have").onclick = $("#b-toLogin").onclick = () => { dlg.hidden = true; transition(() => show("s-login")) };
+$("#b-toReg").onclick = () => transition(() => show("s-reg"));
+$("#f-reg").addEventListener("submit", async e => {
+  e.preventDefault(); const err = $("#r-err");
+  const name = $("#r-name").value.trim(), mail = $("#r-mail").value.trim().toLowerCase(), p1 = $("#r-pass").value, p2 = $("#r-pass2").value;
+  if (!name) return err.textContent = "Escribe tu nombre.";
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return err.textContent = "Escribe un correo válido, por ejemplo nombre@correo.com.";
+  if (p1.length < 6) return err.textContent = "La contraseña debe tener al menos 6 caracteres.";
+  if (p1 !== p2) return err.textContent = "Las contraseñas no coinciden.";
+  if (mem.users[mail]) return err.textContent = "Ese correo ya tiene cuenta. Inicia sesión.";
+  mem.users[mail] = { name, hash: await hash(p1), progress: {}, avatar: regAvatar }; save(); err.textContent = "";
+  $("#l-mail").value = mail; dlg.hidden = true;
+  await transition(() => show("s-login")); say(["¡Listo! Ahora inicia sesión para comenzar."]);
+});
+$("#f-login").addEventListener("submit", async e => {
+  e.preventDefault(); const err = $("#l-err");
+  const mail = $("#l-mail").value.trim().toLowerCase(), u = mem.users[mail];
+  if (!u || u.hash !== await hash($("#l-pass").value)) return err.textContent = "Correo o contraseña incorrectos.";
+  err.textContent = ""; mem.session = mail; save(); applyAvatar(u.avatar); dlg.hidden = true; $("#l-pass").value = ""; goHome(true);
+});
+
+/* ---------- Pantalla completa ---------- */
+$("#b-fs").onclick = async () => {
+  const el = $("#app");
+  try { if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document) } else { await (el.requestFullscreen || el.webkitRequestFullscreen).call(el) } }
+  catch (e) { toast && $("#s-game").hidden === false ? toast("Tu navegador no permite pantalla completa aquí.") : 0 }
+  setTimeout(() => { if (running) resize() }, 250);
+};
+document.addEventListener("fullscreenchange", () => { $("#b-fs").textContent = document.fullscreenElement ? "✕" : "⛶"; setTimeout(() => running && resize(), 100) });
+
+/* ---------- Arranque ---------- */
+load();
+if (me()) { applyAvatar(me().avatar); show("s-home"); renderHome() }
+else { show("s-title"); say(["¡Hola! Bienvenido a XYLA.", "Aquí vas a encontrar diferentes retos de Matemáticas.", "Primero tendrás que pasar por Operaciones Aritméticas, después por Álgebra y al final tendrás un reto de Geometría.", "Yo te voy a acompañar y explicar lo que necesites.", "¿Empezamos?"]) }
+</script>
