@@ -534,32 +534,32 @@ if __name__ == "__main__":
 "use strict";
 const LEVELS = {
 arit:[
- {img:"arit1",fx:"space",plats:[[0,622,135],[1065,1516,137]],bridges:[[622,1065,136]],spawn:60,portal:{x:1235,y:113,s:1.5,open:1},gems:[[380,80],[840,85],[980,80]]},
+ {img:"arit1",fx:"space",blk:[[420,458,22],[1095,1131,14],[1131,1167,28]],plats:[[0,622,135],[1065,1516,137]],bridges:[[622,1065,136]],spawn:60,portal:{x:1235,y:116,open:1},gems:[[380,80],[840,85],[980,80]]},
  {img:"arit2_bg",fx:"lava",plats:[[15,175,100],[375,497,104],[550,663,84],[770,895,102],[942,1125,81]],spawn:60,box:{spr:"arit2_box",x:1030},exit:[1125,1516,81],portal:{x:1450,y:75},gems:[[275,45],[525,30],[716,35],[920,30]]},
  {img:"arit3_bg",fx:"space",plats:[[138,257,112],[1200,1516,80]],spawn:190,
-  movers:[{spr:"arit3_p2",walk:[335,437,120],ax:50,T:3.2},{spr:"arit3_p3",walk:[482,628,91],ay:26,T:2.6},{spr:"arit3_p4",walk:[670,773,80],ay:24,T:2.2,ph:1.5},{spr:"arit3_p5",walk:[823,945,51],ax:65,T:3.6}],
+  movers:[{spr:"arit3_p2",walk:[335,437,120],ax:50,T:3.2},{spr:"arit3_p3",walk:[482,628,91],ay:26,T:2.6},{spr:"arit3_p4",walk:[670,773,80],ay:24,T:2.2,ph:1.5},{spr:"arit3_p5",walk:[823,945,51],ax:100,T:3.6}],
   box:{spr:"arit3_box",x:1325},portal:{x:1460,y:70},gems:[[296,70],[555,35],[722,25],[1080,15]]},
  {img:"arit4_bg",fx:"space",fly:true,spawn:40,spawnY:75,
   // Obstáculos repartidos con espacio parejo (~150px entre centros) y alternando arriba/abajo
   // para que siempre quede un carril libre y predecible en vez de un muro de asteroides.
   obst:[{spr:"arit4_o0",c:[320,60,30],ay:14,T:3,rot:.4},{spr:"arit4_o3",c:[470,98,22],ay:14,T:2.4,rot:2},{spr:"arit4_o2",c:[620,60,28],ay:14,T:2.8,rot:.6},{spr:"arit4_o4",c:[770,98,24],ay:14,T:2.2,rot:-2},{spr:"arit4_o1",c:[920,60,28],ay:14,T:2.6,rot:-.5},{spr:"arit4_o5",c:[1070,92,17],ay:12,T:1.8,rot:2.5}],
   land:1245,plats:[[1245,1400,101]],box:{spr:"arit4_box",x:1332},exit:[1400,1516,101],portal:{x:1465,y:93},gems:[[395,75],[695,40],[995,70]]},
- {img:"arit5",fx:"space",plats:[[0,1516,120]],spawn:60,goal:1120,portal:{x:1290,y:103,s:1.25},gems:[[400,70],[700,70],[1000,70]]}],
+ {img:"arit5",fx:"space",blk:[[300,336,24],[440,478,18],[478,516,36],[1040,1078,28]],plats:[[0,1516,120]],spawn:60,goal:1120,portal:{x:1290,y:115},gems:[[400,70],[700,70],[1000,70]]}],
 alg:[
- {img:"alg1",fx:"cave",plats:[[0,1580,160]],spawn:60,portal:{x:1298,y:150,s:1.4,open:1},gems:[[450,110],[800,110],[1050,110]]},
+ {img:"alg1",fx:"cave",blk:[[300,338,24],[560,596,16],[596,632,32],[820,858,26],[1130,1166,14],[1166,1202,28]],plats:[[0,1580,160]],spawn:60,portal:{x:1298,y:156,open:1},gems:[[450,110],[800,110],[1050,110]]},
  {img:"alg2_bg",fx:"water",plats:[[65,230,107],[363,493,102],[605,740,105],[910,1070,102],[1187,1340,95]],spawn:110,box:{spr:"alg2_box",x:1000},star:{spr:"alg2_star",x:1262},exit:[1340,1580,95],portal:{x:1510,y:90},gems:[[296,50],[550,45],[825,50]]},
  {img:"alg3_bg",fx:"cave",plats:[[87,297,103],[1300,1580,90]],spawn:130,
   movers:[{spr:"alg3_p2",walk:[422,620,108],ax:60,T:3.4},{spr:"alg3_p3",walk:[745,930,101],ay:28,T:2.8},{spr:"alg3_p4",walk:[1033,1205,85],ax:55,T:3,ph:1}],
   box:{spr:"alg3_box",x:1445},portal:{x:1535,y:83},gems:[[360,45],[682,40],[985,35]]},
- {img:"alg4_bg",fx:"cave",plats:[[0,1580,137]],spawn:60,box:{x:560,hidden:1},cups:{slots:[662,770,878],y:112},portal:{x:1500,y:135},gems:[[300,95],[1150,95],[1320,95]]},
- {img:"alg5",fx:"cave",plats:[[0,1580,145]],spawn:60,goal:1230,portal:{x:1390,y:126,s:1.3},gems:[[400,90],[750,90],[1050,90]]}]
+ {img:"alg4_bg",fx:"cave",blk:[[450,488,24],[1000,1038,28]],plats:[[0,1580,137]],spawn:60,box:{x:560,hidden:1},cups:{slots:[662,770,878],y:112},portal:{x:1500,y:135},gems:[[300,95],[1150,95],[1320,95]]},
+ {img:"alg5",fx:"cave",blk:[[300,336,24],[420,458,18],[458,496,36],[1100,1138,28]],plats:[[0,1580,145]],spawn:60,goal:1230,portal:{x:1390,y:140},gems:[[400,90],[750,90],[1050,90]]}]
 };
 /* ---------- Niveles más largos y difíciles ----------
    Cada nivel de plataformas repite una sección "ida - espejo - ida": el espejo hace que los cortes del
    fondo sean continuos, sin costuras. Se duplican plataformas, gemas, plataformas móviles, asteroides
    y cristales peligrosos; todo lo que está después de la sección se recorre. Las copias son más rápidas. */
 const LEVEL_EXT = {
-  arit: { 1: [285, 716], 2: [649, 1105], 3: [395, 845], 4: [560, 1000] },
+  arit: { 1: [285, 716], 2: [649, 1020], 3: [395, 845], 4: [560, 1000] },
   alg:  { 1: [297, 825], 2: [712, 1280], 3: [165, 400], 4: [560, 1050] }
 };
 // Cristales peligrosos en el piso: [x0, x1] (opcional: amplitud de patrulla, periodo)
@@ -587,6 +587,7 @@ function extendLevel(L, xs, xe, hz) {
     m => ({ ...m, walk: [mir(m.walk[1]), mir(m.walk[0]), m.walk[2]], mir: true, mx: 2 * xe, T: m.T * .85 }),
     m => ({ ...m, walk: [m.walk[0] + D2, m.walk[1] + D2, m.walk[2]], sx: (m.sx || 0) + D2, T: part((m.walk[0] + m.walk[1]) / 2) === 1 ? m.T * .85 : m.T }));
   if (L.gems) L.gems = items(L.gems, g => g[0], 0, g => [mir(g[0]), g[1]], g => [g[0] + D2, g[1]]);
+  if (L.blk) L.blk = items(L.blk, b => (b[0] + b[1]) / 2, 0, b => [mir(b[1]), mir(b[0]), b[2]], b => [b[0] + D2, b[1] + D2, b[2]]);
   if (L.obst) L.obst = items(L.obst, o => o.c[0], 0,
     o => ({ ...o, c: [mir(o.c[0]), o.c[1], o.c[2]], T: o.T * .85, ay: (o.ay || 0) + 4, at: !o.at }),
     o => ({ ...o, c: [o.c[0] + D2, o.c[1], o.c[2]], T: part(o.c[0]) === 1 ? o.T * .85 : o.T, ay: part(o.c[0]) === 1 ? (o.ay || 0) + 4 : o.ay }));
@@ -621,6 +622,11 @@ function fixGems(L) {
   });
   L.gems = L.gems.filter((g, i, arr) => arr.findIndex(h => Math.abs(h[0] - g[0]) < 36 && Math.abs(h[1] - g[1]) < 30) === i); // sin gemas encimadas
 }
+/* Bloques sólidos (escalones y cajas): se pueden escalar, se choca de lado con ellos y sus cimas son plataformas.
+   [x0, x1, alto] -> [x0, x1, y de la cima, y del piso]. */
+for (const area in LEVELS) LEVELS[area].forEach(L => { L.blocks = (L.blk || []).map(([a, b, h]) => { const cx = (a + b) / 2, pl = L.plats.find(q => cx >= q[0] && cx <= q[1]) || (L.bridges || []).find(q => cx >= q[0] && cx <= q[1]); const gy = pl ? pl[2] : 130; return [a, b, gy - h, gy] }) });
+// Ajuste fino de la última plataforma móvil: se acerca a la salida para que el último salto no dependa de la suerte.
+{ const L = LEVELS.arit[2], m = L.movers.slice().sort((x, y) => x.walk[0] - y.walk[0]).pop(), n = 75; m.walk = [m.walk[0] + n, m.walk[1] + n, m.walk[2]]; m.sx = (m.sx || 0) + n }
 for (const area in LEVELS) LEVELS[area].forEach(fixGems);
 /* Imagen del nivel extendido: ida + espejo + ida + resto, en un solo lienzo con el mismo formato que la imagen original */
 function levelImg(L) {
@@ -986,7 +992,7 @@ const CW = 260, CH = 420, K = 0.19, FLY_K = .9; // FLY_K: tamaño del avatar al 
 // El hueco más ancho de los niveles mide 200 u: alcance = RUN_V x tiempo en el aire ~ 208 u (+16 u de tolerancia en los bordes).
 const RUN_V = 250, JUMP_V = 475, G_UP = 1050, G_DOWN = 1500;
 const KR = K / 0.22, FR = K * FLY_K / (0.22 * 0.72);
-const BOXS = .7, PS = .82, OBS = .85; // OBS: asteroides // caja ?, estrella y portales: más chicos para que pesen como el personaje (el cubo era más alto que él)
+const BOXS = .7, PZ = 1.1, OBS = .85; // caja ?, estrella y asteroides más chicos para pesar como el personaje; PZ: zoom de los portales (el nuevo es más grande y cubre el portal pintado del arte)
 const keys = { left: 0, right: 0, up: 0, down: 0 };
 let running = false, G = null, last = 0, gemsTotal = 0;
 const TAU = Math.PI * 2;
@@ -1081,6 +1087,7 @@ function updGems() { $("#g-gems-n").textContent = gemsTotal }
 function moverOff(m, t) { const a = TAU * t / m.T + (m.ph || 0); return [(m.ax || 0) * Math.sin(a) * (m.mir ? -1 : 1), (m.ay || 0) * Math.sin(a)] }
 function plats() {
   const L = G.L; let p = L.plats.slice(); if (L.bridges) p = p.concat(L.bridges); if (G.exitOn && L.exit) p.push(L.exit);
+  for (const b of L.blocks || []) p.push(Object.assign([b[0], b[1], b[2]], { blk: true }));
   if (L.movers) for (const m of L.movers) { const [dx, dy] = moverOff(m, G.t); const w = m.walk; p.push([w[0] + dx, w[1] + dx, w[2] + dy, m]) }
   return p;
 }
@@ -1100,7 +1107,9 @@ function step(dt) {
   for (const b of G.burst) { b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 60 * dt }
   G.burst = G.burst.filter(b => b.t < b.life);
   if (G.absorb) {
-    const wasBelow = G.absorb < 1; G.absorb = Math.min(1, G.absorb + dt / .8);
+    const wasBelow = G.absorb < 1; G.absorb = Math.min(1, G.absorb + dt / .9);
+    { const P = L.portal, s2 = (P.s || 1) * PZ, cx = P.x, cyy = P.y - 52 * s2 - 3 * s2; // chispas que el portal succiona
+      if (Math.random() < dt * 60) { const an = Math.random() * TAU, r = (30 + Math.random() * 30) * s2; G.burst.push({ x: cx + Math.cos(an) * r, y: cyy + Math.sin(an) * r * 1.4, vx: -Math.cos(an) * r * 2.4, vy: -Math.sin(an) * r * 3.2, t: 0, life: .45, c: Math.random() < .5 ? "160,240,255" : "200,160,255" }) } }
     if (wasBelow && G.absorb >= 1) { G.warpFlash = 1.3; sfxWarp(); if (G.done) { const d = G.done; G.done = null; d() } }
     return;
   }
@@ -1146,7 +1155,12 @@ function step(dt) {
     if (wasFast && dir === 0 && G.ground) G.squash = Math.max(G.squash || 0, .5); // frenada brusca
     if (!busy && keys.up && (G.ground || G.coyote > 0)) { G.vy = -JUMP_V; G.ground = false; G.coyote = 0; G.jt = 0; G.on = null; G.squash = -.8; sfxJump() }
     if (!keys.up && G.vy < -250) G.vy = -250;
-    const prevY = G.y, fallV = G.vy; G.vy += (G.vy < 0 && keys.up ? G_UP : G_DOWN) * dt; G.x += (G.vx + (G.kbx || 0)) * dt; G.kbx = (G.kbx || 0) * Math.pow(.02, dt); G.y += G.vy * dt; G.jt = (G.jt || 0) + dt;
+    let prevY = G.y; const fallV = G.vy, prevX = G.x; G.vy += (G.vy < 0 && keys.up ? G_UP : G_DOWN) * dt; G.x += (G.vx + (G.kbx || 0)) * dt; G.kbx = (G.kbx || 0) * Math.pow(.02, dt); G.y += G.vy * dt;
+    for (const b of L.blocks || []) { // bloques sólidos: si los pies están más abajo que la cima y se mete de lado, se frena (y sube solo si el escalón es de <= 7)
+      const hw = 9; if (G.x + hw > b[0] && G.x - hw < b[1] && G.y > b[2] + 3 && prevY > b[2] + 3 - 1) {
+        if (prevY - b[2] <= 7 && G.vy >= 0) { G.y = b[2]; prevY = b[2] - 1; G.vy = 0 }
+        else { G.x = prevX <= (b[0] + b[1]) / 2 ? b[0] - hw : b[1] + hw; G.vx = 0; G.kbx = 0 }
+      } } G.jt = (G.jt || 0) + dt;
     G.coyote = Math.max(0, (G.coyote || 0) - dt);
     let landed = null;
     if (G.vy >= 0) for (const p of plats()) { if (G.x >= p[0] - 8 && G.x <= p[1] + 8 && prevY <= p[2] + 3 && G.y >= p[2]) { G.y = p[2]; G.vy = 0; landed = p; break } }
@@ -1165,7 +1179,7 @@ function step(dt) {
         break;
       }
     }
-    if (landed && !landed[3] && landed !== L.exit) G.cp = Math.min(Math.max(G.x, landed[0] + 20), landed[1] - 20);
+    if (landed && !landed[3] && landed !== L.exit && !landed.blk) G.cp = Math.min(Math.max(G.x, landed[0] + 20), landed[1] - 20);
     if (G.y > rowH + 60) {
       const over = loseLife("¡Cuidado! Evita caer.");
       if (over) G.cp = L.spawn;
@@ -1183,30 +1197,81 @@ function step(dt) {
   if (!G.busy && L.box && !G.answered && Math.abs(G.x - L.box.x) < 26 && !G.fly) { G.busy = true; G.onBox && G.onBox() }
   if (L.goal && G.x >= L.goal) openPortal();
   const P = L.portal;
-  if (!G.busy && P && G.portalOpen >= 1 && Math.abs(G.x - P.x) < 20 * PS * (P.s || 1) + 4) { G.busy = true; G.absorb = 0.001; G.face = 1 }
+  if (!G.busy && P && G.portalOpen >= 1 && Math.abs(G.x - P.x) < 15 * PZ * (P.s || 1) + 6) { G.busy = true; G.absorb = 0.001; G.face = 1 }
 }
 function dust(x, y, n) { for (let i = 0; i < n; i++) G.burst.push({ x: x + rnd(-10, 10), y: y - rnd(0, 3), vx: rnd(-50, 50), vy: rnd(-40, -8), t: 0, life: rnd(.35, .7), c: "210,235,255", big: 1 }) }
 function boom(x, y, c) { for (let i = 0; i < 24; i++) G.burst.push({ x, y, vx: rnd(-140, 140), vy: rnd(-160, 30), t: 0, life: rnd(.5, 1), c }) }
 
 /* Portal animado (se usa en el juego y en las pantallas de transición) */
-function drawPortal(c, x, yb, s, t, open) {
-  if (open <= 0) return;
-  const rx = 34 * s * open, ry = 52 * s * open, cy = yb - 52 * s;
-  c.save(); c.translate(x, cy);
-  c.save(); c.scale(1, ry / rx);
-  let g = c.createRadialGradient(0, 0, 0, 0, 0, rx * 1.5);
-  g.addColorStop(0, "rgba(20,6,60,1)"); g.addColorStop(.45, "rgba(90,40,210,.95)"); g.addColorStop(.72, "rgba(63,214,255,.9)"); g.addColorStop(1, "rgba(63,214,255,0)");
-  c.fillStyle = g; c.beginPath(); c.arc(0, 0, rx * 1.5, 0, TAU); c.fill(); c.restore();
-  c.globalCompositeOperation = "lighter";
-  for (let k = 0; k < 5; k++) {
+/* Portal con profundidad (se usa en el juego y en las pantallas de transición).
+   Dos capas: "back" (charco de luz en el piso, rayo de luz, túnel con anillos que se alejan, marco de piedra con runas)
+   y "front" (el arco inferior del marco), que se pinta DESPUÉS del personaje mientras es absorbido: así parece que
+   entra al túnel en vez de pasar por encima. Con open = 0 el portal se ve sellado (marco con runas apagadas). */
+function portalRing(c, rx, ry, th, s, t, op, lowerOnly) {
+  const N = 16, pulse = .5 + .5 * Math.sin(t * 3);
+  for (let i = 0; i < N; i++) {
+    const a0 = i * TAU / N + .018, a1 = (i + 1) * TAU / N - .018, am = (a0 + a1) / 2;
+    if (lowerOnly && Math.sin(am) < .3) continue;
+    const ox = r => Math.cos(r), oy = r => Math.sin(r), R0 = 1, R1 = (rx + th) / rx;
     c.beginPath();
-    for (let r = .08; r <= 1; r += .04) { const a = -t * 3.2 + k * TAU / 5 + r * 5.2; const px = Math.cos(a) * rx * r, py = Math.sin(a) * ry * r; r === .08 ? c.moveTo(px, py) : c.lineTo(px, py) }
-    c.strokeStyle = k % 2 ? "rgba(190,140,255,.55)" : "rgba(140,240,255,.5)"; c.lineWidth = 2.6 * s; c.stroke();
+    c.moveTo(ox(a0) * (rx + th), oy(a0) * (ry + th)); c.lineTo(ox(a1) * (rx + th), oy(a1) * (ry + th));
+    c.lineTo(ox(a1) * rx, oy(a1) * ry); c.lineTo(ox(a0) * rx, oy(a0) * ry); c.closePath();
+    const lit = .5 + .5 * Math.cos(am + 2.2), g = c.createLinearGradient(ox(am) * (rx + th), oy(am) * (ry + th), ox(am) * rx, oy(am) * ry);
+    g.addColorStop(0, `rgb(${Math.round(120 + 100 * lit)},${Math.round(150 + 90 * lit)},${Math.round(215 + 30 * lit)})`); g.addColorStop(1, `rgb(${Math.round(30 + 40 * lit)},${Math.round(48 + 52 * lit)},${Math.round(105 + 40 * lit)})`);
+    c.fillStyle = g; c.fill(); c.lineWidth = 1.5 * s; c.strokeStyle = "#0a1230"; c.stroke();
+    if (i % 2) { // runa
+      const rr = (rx + th * .5), px = ox(am) * rr, py = oy(am) * (ry + th * .5), ang = am + Math.PI / 2, k = (.2 + .8 * op) * (.7 + .3 * pulse);
+      c.save(); c.translate(px, py); c.rotate(ang); c.globalCompositeOperation = "lighter"; c.strokeStyle = `rgba(110,240,255,${k})`; c.lineWidth = 1.6 * s; c.lineCap = "round";
+      c.beginPath(); c.moveTo(-2.6 * s, -2.2 * s); c.lineTo(0, 2.4 * s); c.lineTo(2.6 * s, -2.2 * s); c.moveTo(-2.6 * s, 0); c.lineTo(2.6 * s, 0); c.stroke(); c.restore();
+    }
   }
-  for (let i = 0; i < 16; i++) { const f = ((t * .6 + i / 16) % 1), a = i * 2.4 + t * 2, r = 1.25 - f; c.fillStyle = `rgba(200,240,255,${.9 * f})`; c.beginPath(); c.arc(Math.cos(a) * rx * r, Math.sin(a) * ry * r, 1.6 * s, 0, TAU); c.fill() }
+}
+function drawPortal(c, x, yb, s, t, open, part) {
+  const doFront = part === "front", doBack = !doFront;
+  const rx = 34 * s, ry = 52 * s, th = 9 * s, cy = yb - ry - 3 * s, op = Math.max(0, Math.min(1, open || 0)), pulse = .5 + .5 * Math.sin(t * 3);
+  c.save(); c.translate(x, cy);
+  if (doFront) { portalRing(c, rx, ry, th, s, t, op, true); c.restore(); return }
+  // charco de luz en el piso: da apoyo al portal
+  c.globalCompositeOperation = "lighter";
+  let g = c.createRadialGradient(0, ry + 3 * s, 0, 0, ry + 3 * s, rx * 2); g.addColorStop(0, `rgba(80,225,255,${.1 + .5 * op})`); g.addColorStop(1, "rgba(80,225,255,0)");
+  c.save(); c.translate(0, ry + 3 * s); c.scale(1, .17); c.translate(0, -(ry + 3 * s)); c.fillStyle = g; c.beginPath(); c.arc(0, ry + 3 * s, rx * 2, 0, TAU); c.fill(); c.restore();
+  // rayo de luz hacia arriba
+  if (op > .02) { const bg = c.createLinearGradient(0, -ry, 0, -ry - 150 * s); bg.addColorStop(0, `rgba(140,235,255,${.22 * op})`); bg.addColorStop(1, "rgba(140,235,255,0)");
+    c.fillStyle = bg; c.beginPath(); c.moveTo(-rx * .75, -ry * .6); c.lineTo(rx * .75, -ry * .6); c.lineTo(rx * 1.05, -ry - 150 * s); c.lineTo(-rx * 1.05, -ry - 150 * s); c.closePath(); c.fill() }
   c.globalCompositeOperation = "source-over";
-  c.strokeStyle = "rgba(63,214,255,.35)"; c.lineWidth = 9 * s; c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.stroke(); c.strokeStyle = "rgba(158,242,255,.95)"; c.lineWidth = 3 * s;
-  c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.stroke(); c.restore();
+  // interior: vacío + túnel de anillos que se alejan hacia el fondo
+  c.save(); c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.clip();
+  g = c.createRadialGradient(0, 0, 0, 0, 0, rx * 1.25); g.addColorStop(0, "#07021c"); g.addColorStop(.5, "#190a50"); g.addColorStop(1, "#0b2c66"); c.fillStyle = g; c.fillRect(-rx, -ry, rx * 2, ry * 2);
+  c.globalCompositeOperation = "lighter";
+  const sc = .12 + .88 * op;
+  for (let k = 0; k < 9; k++) {
+    const f = ((t * (.28 + .2 * op) + k / 9) % 1), r = (1.05 - f * .98) * sc, a = Math.sin(f * Math.PI) * (.25 + .65 * op), ox = Math.sin(t * .8 + k) * rx * .05 * f;
+    c.strokeStyle = `hsla(${k % 2 ? 265 : 190},95%,${62 + 12 * (1 - f)}%,${a})`; c.lineWidth = (1 + (1 - f) * 3.6) * s;
+    c.beginPath(); c.ellipse(ox, -ry * .04 * f, rx * r, ry * r, 0, 0, TAU); c.stroke();
+  }
+  for (let k = 0; k < 5; k++) { // brazos del remolino
+    c.beginPath();
+    for (let r = .06; r <= 1; r += .04) { const an = -t * 2.6 * (.4 + .6 * op) + k * TAU / 5 + r * 5.4; const px = Math.cos(an) * rx * r * sc, py = Math.sin(an) * ry * r * sc; r === .06 ? c.moveTo(px, py) : c.lineTo(px, py) }
+    c.strokeStyle = k % 2 ? `rgba(190,140,255,${.2 + .4 * op})` : `rgba(140,240,255,${.2 + .38 * op})`; c.lineWidth = 2.3 * s; c.stroke();
+  }
+  if (op > .5) for (let k = 0; k < 3; k++) { // descargas de energía
+    const a0 = t * 1.7 + k * 2.1, vis = Math.sin(t * 9 + k * 5) > .35 ? 1 : 0; if (!vis) continue;
+    c.beginPath(); let ex = Math.cos(a0) * rx, ey = Math.sin(a0) * ry; c.moveTo(ex, ey);
+    for (let q = 1; q <= 6; q++) { const f = q / 6; c.lineTo(ex * (1 - f) + Math.sin(t * 40 + q * 3 + k) * 4 * s, ey * (1 - f) + Math.cos(t * 33 + q * 2 + k) * 4 * s) }
+    c.strokeStyle = `rgba(220,245,255,${.5 * op})`; c.lineWidth = 1.3 * s; c.stroke();
+  }
+  g = c.createRadialGradient(0, 0, 0, 0, 0, rx * .55 * sc); g.addColorStop(0, `rgba(235,225,255,${(.35 + .3 * pulse) * op + .04})`); g.addColorStop(1, "rgba(160,110,255,0)"); c.fillStyle = g; c.fillRect(-rx, -ry, rx * 2, ry * 2);
+  c.restore();
+  // marco de piedra con runas
+  c.globalCompositeOperation = "source-over"; portalRing(c, rx, ry, th, s, t, op, false);
+  // brillo del borde interior y onda al abrirse
+  c.globalCompositeOperation = "lighter";
+  c.strokeStyle = `rgba(158,242,255,${(.12 + .6 * op) * (.8 + .2 * pulse)})`; c.lineWidth = 2.6 * s; c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.stroke();
+  if (op > .02 && op < 1) { const w = 1 + (1 - op) * 1.1; c.strokeStyle = `rgba(190,245,255,${op * (1 - op) * 3})`; c.lineWidth = 3 * s; c.beginPath(); c.ellipse(0, 0, (rx + th) * w, (ry + th) * w, 0, 0, TAU); c.stroke() }
+  // partículas que el portal atrae y chispas que suben del piso
+  for (let i = 0; i < 16; i++) { const f = ((t * .5 + i / 16) % 1), an = i * 2.4 + t * 1.1, r = 1.55 - f * 1.35; c.fillStyle = `rgba(200,240,255,${.9 * f * (.15 + .85 * op)})`; c.beginPath(); c.arc(Math.cos(an) * (rx + th) * r, Math.sin(an) * (ry + th) * r, 1.5 * s, 0, TAU); c.fill() }
+  for (let i = 0; i < 10; i++) { const f = ((t * .32 + i * .1) % 1), px = (((i * 37) % 100) / 100 - .5) * rx * 2.6; c.fillStyle = `rgba(150,235,255,${(1 - f) * .75 * (.2 + .8 * op)})`; c.fillRect(px, ry + 3 * s - f * ry * 1.7, 1.6 * s, 1.6 * s) }
+  c.restore();
 }
 function drawCup(c, x, y, lift, t) {
   const w = 76, h = 64, top = y - h - lift;
@@ -1225,6 +1290,33 @@ function drawQBox(c, x, yb, t, s = 1) {
   c.drawImage(b, x - w / 2, yb - h + 2, w, h);
 }
 /* Globo de diálogo con "?" flotando sobre una caja, para que se note que hay que tocarla. */
+/* Bloques sólidos con volumen: cara superior clara, frente degradado con paneles y vetas de luz, contorno marino
+   (mismo estilo que las plataformas del arte), sombra de contacto en el piso y oclusión en la base. */
+function drawBlock(c, b, t, fx) {
+  const [x0, x1, top, gy] = b, w = x1 - x0, h = gy - top, d = 6, glowC = fx === "lava" ? "255,160,90" : fx === "water" ? "90,255,210" : "110,225,255";
+  c.save(); c.lineJoin = "round";
+  // sombra de contacto y brillo ambiental en el piso
+  const sg = c.createRadialGradient((x0 + x1) / 2, gy, 0, (x0 + x1) / 2, gy, w * .9); sg.addColorStop(0, "rgba(0,4,24,.5)"); sg.addColorStop(1, "rgba(0,4,24,0)");
+  c.save(); c.translate(0, gy); c.scale(1, .22); c.translate(0, -gy); c.fillStyle = sg; c.beginPath(); c.arc((x0 + x1) / 2 + 4, gy, w * .9, 0, TAU); c.fill(); c.restore();
+  // frente
+  const fg = c.createLinearGradient(0, top, 0, gy); fg.addColorStop(0, "#6d92da"); fg.addColorStop(.55, "#3d58a6"); fg.addColorStop(1, "#1f2f70");
+  c.fillStyle = fg; c.strokeStyle = "#0d1530"; c.lineWidth = 1.8; c.beginPath(); c.rect(x0, top, w, h); c.fill(); c.stroke();
+  // paneles
+  c.strokeStyle = "rgba(13,21,48,.7)"; c.lineWidth = 1.1; const rows = Math.max(1, Math.round(h / 16));
+  for (let i = 1; i < rows; i++) { const y = top + h * i / rows; c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y); c.stroke() }
+  if (w > 24) { c.beginPath(); c.moveTo(x0 + w * .5, top); c.lineTo(x0 + w * .5, top + h / rows); c.stroke() }
+  // veta de luz pulsante en el panel de en medio
+  const pulse = .55 + .45 * Math.sin(t * 2.4 + x0); c.fillStyle = `rgba(${glowC},${.45 * pulse})`; c.fillRect(x0 + 5, top + h * .5 - 1.2, w - 10, 2.4);
+  // remaches
+  c.fillStyle = "rgba(210,230,255,.7)"; for (const [rx, ry] of [[x0 + 3.5, top + 4], [x1 - 3.5, top + 4]]) { c.beginPath(); c.arc(rx, ry, 1.1, 0, TAU); c.fill() }
+  // oclusión en la base
+  const og = c.createLinearGradient(0, gy - 7, 0, gy); og.addColorStop(0, "rgba(0,6,30,0)"); og.addColorStop(1, "rgba(0,6,30,.55)"); c.fillStyle = og; c.fillRect(x0, gy - 7, w, 7);
+  // cara superior (tapa) con perspectiva
+  const tg = c.createLinearGradient(0, top - d, 0, top); tg.addColorStop(0, "#f4f8ff"); tg.addColorStop(1, "#bdd0ee");
+  c.fillStyle = tg; c.strokeStyle = "#0d1530"; c.lineWidth = 1.8; c.beginPath(); c.moveTo(x0, top); c.lineTo(x0 + 3.5, top - d); c.lineTo(x1 - 3.5, top - d); c.lineTo(x1, top); c.closePath(); c.fill(); c.stroke();
+  c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 1; c.beginPath(); c.moveTo(x0 + 5, top - d + 1.6); c.lineTo(x1 - 5, top - d + 1.6); c.stroke();
+  c.restore();
+}
 function hzX(h, t) { return h[3] ? h[3] * Math.sin(TAU * t / h[4]) : 0 } // h = [x0, x1, y, amplitud, periodo]
 function drawHazards(c, L, t) {
   for (const h of L.hz || []) {
@@ -1415,6 +1507,7 @@ function draw() {
     const key = o.spr.split("_"); const r = OBJ[key[0]][key[1]]; ctx.save(); ctx.translate(ox, oy2); ctx.rotate(rot); if (o.at) ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] * OBS / 2, -r[3] * OBS / 2, r[2] * OBS, r[3] * OBS); ctx.restore();
   }
   drawHazards(ctx, L, t);
+  for (const b of L.blocks || []) drawBlock(ctx, b, t, L.fx);
   // gemas
   for (const g of G.gems) if (!g.got) { const sx = Math.abs(Math.cos(t * 2.4 + g.x)) * 7 + 1, yy = g.y + Math.sin(t * 3 + g.x) * 3; drawGem(ctx, g.x, yy, sx, t) }
   // caja ?
@@ -1428,7 +1521,7 @@ function draw() {
   if (G.cups) { for (const c of G.cups) if (c.i === G.cupHas && c.lift > 2) drawQBox(ctx, c.x, c.y, t); for (const c of G.cups) drawCup(ctx, c.x, c.y, c.lift, t);
     if (G.cupPick) { ctx.save(); ctx.fillStyle = "#ffcf4a"; ctx.font = "bold 13px 'Chakra Petch',sans-serif"; ctx.textAlign = "center"; G.cups.slice().sort((a, b) => a.x - b.x).forEach((c, i) => ctx.fillText(String(i + 1), c.x, c.y - 76 - pulse * 4)); ctx.restore() } }
   // portal
-  if (L.portal) drawPortal(ctx, L.portal.x, L.portal.y, (L.portal.s || 1) * PS, t, G.portalOpen);
+  if (L.portal) drawPortal(ctx, L.portal.x, L.portal.y, (L.portal.s || 1) * PZ, t, G.portalOpen, "back");
   if (G.trail.length) for (const tr of G.trail) { tr.a *= G.fly ? 0.9 : 0.8; ctx.fillStyle = `rgba(63,214,255,${tr.a * 0.5})`; ctx.fillRect(tr.x - 10, tr.y, 20, 3) }
   // personaje
   let f = 8, bob = 0, lean = 0, run = null, runImg = null;
@@ -1445,9 +1538,12 @@ function draw() {
   if (G.inv > 0 && Math.floor(t * 16) % 2) ctx.globalAlpha = 0.35;
   if (G.emerge > 0) ctx.globalAlpha *= 1 - G.emerge * 0.85; // se desvanece al materializarse al llegar
   ctx.save();
-  let px = G.x, py = G.y + bob, sc = K;
-  if (G.absorb) { const a = G.absorb, P = L.portal; px += (P.x - px) * a; py += (P.y - 40 * PS * (P.s || 1) - py) * a; sc = K * (1 - a * .95) }
-  ctx.translate(px, py); if (G.absorb) ctx.rotate(G.absorb * 7); else if (G.emerge > 0) ctx.rotate(G.emerge * G.emerge * -.6);
+  let px = G.x, py = G.y + bob, sc = K, absA = 0;
+  if (G.absorb) { // el portal te jala en espiral hacia el túnel: giras, te encoges y te desvaneces al final
+    const a0 = G.absorb, P = L.portal, s2 = (P.s || 1) * PZ, tx = P.x, ty = P.y - 52 * s2 + 22 * s2, sw = Math.sin(a0 * Math.PI) * 14 * s2, an = a0 * TAU * 1.3;
+    absA = a0 * a0 * (3 - 2 * a0); px += (tx - px) * absA + Math.cos(an) * sw * .5; py += (ty - py) * absA + Math.sin(an) * sw * .5; sc = K * (1 - absA * .93); ctx.globalAlpha *= 1 - Math.max(0, (a0 - .82) / .18);
+  }
+  ctx.translate(px, py); if (G.absorb) ctx.rotate(absA * TAU * 1.4); else if (G.emerge > 0) ctx.rotate(G.emerge * G.emerge * -.6);
   const sq = (G.squash || 0) * .12; // positivo = aplasta al aterrizar, negativo = estira al despegar
   if (G.fly) sc *= FLY_K;
   if (G.emerge > 0) sc *= 1 - G.emerge * 0.9;
@@ -1458,6 +1554,7 @@ function draw() {
   } else if (run) drawRun(ctx, run, G.x * G.face / (103 * KR)); // fase ligada a la distancia: el pie no patina
   else ctx.drawImage(sheet, f * CW, 0, CW, CH, -CW / 2, -CH, CW, CH);
   ctx.restore(); ctx.globalAlpha = 1;
+  if (G.absorb && L.portal) drawPortal(ctx, L.portal.x, L.portal.y, (L.portal.s || 1) * PZ, t, G.portalOpen, "front"); // el arco del frente tapa al personaje: entra al túnel
   // chispas
   ctx.globalCompositeOperation = "lighter";
   for (const b of G.burst) { const f = 1 - b.t / b.life; ctx.fillStyle = `rgba(${b.c},${b.big ? f * .35 : f})`; if (b.big) { ctx.beginPath(); ctx.arc(b.x, b.y, 2 + (1 - f) * 5, 0, TAU); ctx.fill() } else ctx.fillRect(b.x - 1.5, b.y - 1.5, 3, 3) }
@@ -1570,7 +1667,7 @@ function portalScreen(title, btn) {
     (function k(n) {
       if (!povRun) return; const t = (n - t0) / 1000; open = Math.min(1, t / .9);
       pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, pcv.width, pcv.height);
-      const s = Math.min(pcv.width / 160, pcv.height / 200) * zoom;
+      const s = Math.min(pcv.width / 140, pcv.height / 178) * zoom;
       drawPortal(pctx, pcv.width / 2, pcv.height / 2 + 52 * s, s, t, ease(open));
       if (leaving) { zoom *= 1.09; pctx.fillStyle = `rgba(234,246,255,${Math.min(1, (zoom - 1) / 6)})`; pctx.fillRect(0, 0, pcv.width, pcv.height); if (zoom > 8) { povRun = false; pov.hidden = true; res(); return } }
       requestAnimationFrame(k);
