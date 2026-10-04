@@ -339,7 +339,7 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:
   <section class="screen" id="s-game" hidden>
     <div class="hud">
       <div class="lvl" id="g-lvl" hidden></div>
-      <div style="display:flex;gap:14px;align-items:center"><div class="dots" id="g-dots"></div><span class="label" id="g-lives" style="padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55)" aria-live="polite"></span><span class="label" id="g-gems" style="font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55);display:inline-flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><polygon points="8,1 14,8 8,8" fill="#c4fff2"/><polygon points="8,15 14,8 8,8" fill="#3ccdaf"/><polygon points="8,1 2,8 8,8" fill="#c4fff2"/><polygon points="8,15 2,8 8,8" fill="#3ccdaf"/></svg><span id="g-gems-n">0</span></span></div>
+      <div style="display:flex;gap:14px;align-items:center"><div class="dots" id="g-dots"></div><span class="label" id="g-lives" style="white-space:nowrap;padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55)" aria-live="polite"></span><span class="label" id="g-gems" style="font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:99px;background:rgba(6,10,34,.55);display:inline-flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><polygon points="8,1 14,8 8,8" fill="#c4fff2"/><polygon points="8,15 14,8 8,8" fill="#3ccdaf"/><polygon points="8,1 2,8 8,8" fill="#c4fff2"/><polygon points="8,15 2,8 8,8" fill="#3ccdaf"/></svg><span id="g-gems-n">0</span></span></div>
       <button class="btn ghost" id="g-menu">Menú</button>
     </div>
     <div class="stage" id="stage">
@@ -1365,27 +1365,33 @@ function drawGem(c, x, y, sx, t) {
   c.restore();
 }
 
-function buildBg(im) {
-  const W = im.naturalWidth / RES, H = im.naturalHeight / RES, top = H * 3, bot = H * 2;
-  const di = (x, y) => x.drawImage(im, 0, y, W, H);
+/* Fondo extendido: el escenario es una franja panorámica (~11:1) y la pantalla es 16:9, así que arriba y abajo sobra espacio.
+   En vez de copias borrosas del mismo dibujo (que dejaban bandas oscuras y un corte duro), se prolonga el propio borde:
+   se estira una franja cercana al borde superior/inferior, se difumina, se oscurece poco a poco y se le agrega bruma
+   de nebulosa, así el mundo "sigue" hacia arriba y hacia abajo y llena toda la pantalla. */
+function buildBg(im, fx) {
+  const W = im.naturalWidth / RES, H = im.naturalHeight / RES, top = H * 3, bot = H * 2, iw = im.naturalWidth, ih = im.naturalHeight;
   const c = document.createElement("canvas"); c.width = W; c.height = top + H + bot; const x = c.getContext("2d");
-  const soft = "filter" in x;
-  // arriba: copias espejadas, difuminadas y cada vez más oscuras
-  for (let k = 0; k < 3; k++) {
-    x.save(); if (soft) x.filter = `blur(${3 + k * 3}px) brightness(${.62 - k * .14})`;
-    const y0 = top - H * (k + 1);
-    if (k % 2 === 0) { x.translate(0, y0 + H); x.scale(1, -1); di(x, 0) } else di(x, y0);
-    x.restore();
-  }
-  x.save(); if (soft) x.filter = "blur(4px) brightness(.45)"; x.translate(0, top + H * 2); x.scale(1, -1); di(x, 0); x.restore();
-  x.save(); if (soft) x.filter = "blur(8px) brightness(.3)"; di(x, top + H * 2); x.restore();
-  let g = x.createLinearGradient(0, 0, 0, top); g.addColorStop(0, "rgba(6,10,34,1)"); g.addColorStop(.55, "rgba(6,10,34,.55)"); g.addColorStop(1, "rgba(6,10,34,.12)");
+  const soft = "filter" in x, band = Math.max(8, Math.round(ih * .022)), skip = Math.round(ih * .012);
+  x.drawImage(im, 0, top, W, H); // franja central (queda debajo del escenario nítido)
+  // arriba: franja del borde superior estirada
+  x.save(); if (soft) x.filter = "blur(7px)"; x.drawImage(im, 0, skip, iw, band, -12, 0, W + 24, top + 6); x.restore();
+  // abajo: franja justo encima del borde inferior (se evita la línea de luz del borde) estirada
+  x.save(); if (soft) x.filter = "blur(7px)"; x.drawImage(im, 0, ih - skip - band * 2, iw, band, -12, top + H - 6, W + 24, bot + 6); x.restore();
+  // oscurecer con la distancia (la lava y el agua conservan más brillo abajo: se sienten como continuar el piso)
+  const warm = fx === "lava" || fx === "water";
+  let g = x.createLinearGradient(0, 0, 0, top); g.addColorStop(0, "rgba(5,8,30,.94)"); g.addColorStop(.6, "rgba(5,8,30,.55)"); g.addColorStop(1, "rgba(5,8,30,.05)");
   x.fillStyle = g; x.fillRect(0, 0, W, top);
-  g = x.createLinearGradient(0, top + H, 0, c.height); g.addColorStop(0, "rgba(6,10,34,.2)"); g.addColorStop(1, "rgba(6,10,34,1)");
+  g = x.createLinearGradient(0, top + H, 0, c.height); g.addColorStop(0, `rgba(5,8,30,${warm ? .1 : .25})`); g.addColorStop(1, `rgba(5,8,30,${warm ? .8 : .97})`);
   x.fillStyle = g; x.fillRect(0, top + H, W, bot);
-  // uniones suaves
-  g = x.createLinearGradient(0, top - 10, 0, top + 12); g.addColorStop(0, "rgba(6,10,34,0)"); g.addColorStop(.5, "rgba(6,10,34,.25)"); g.addColorStop(1, "rgba(6,10,34,0)");
-  x.fillStyle = g; x.fillRect(0, top - 10, W, 22);
+  // bruma de nebulosa para romper lo liso (posiciones fijas por nivel)
+  x.globalCompositeOperation = "lighter"; let seed = Math.round(W) * 7 + 3; const rn = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const tint = { lava: "255,110,60", water: "60,200,255", cave: "130,90,255", space: "110,100,255" }[fx] || "110,100,255";
+  for (let i = 0; i < Math.round(W / 130); i++) {
+    const bx = rn() * W, by = rn() < .65 ? rn() * top : top + H + rn() * bot, br = 60 + rn() * 140, ga = x.createRadialGradient(bx, by, 0, bx, by, br);
+    ga.addColorStop(0, `rgba(${tint},${.05 + rn() * .05})`); ga.addColorStop(1, `rgba(${tint},0)`); x.fillStyle = ga; x.fillRect(bx - br, by - br, br * 2, br * 2);
+  }
+  x.globalCompositeOperation = "source-over";
   c.top = top; return c;
 }
 // Polvo/bruma en primerísimo plano, por delante de todo (incluso el personaje): se mueve
@@ -1425,9 +1431,9 @@ function postFX(c, w, h, L) {
 function draw() {
   const w = cv.width, h = cv.height, im = (G.im = levelImg(G.L)); if (!im.complete || !im.naturalWidth) return;
   const L = G.L, rowW = im.naturalWidth / RES, rowH = im.naturalHeight / RES, t = G.t;
-  if (!G.bgc) G.bgc = buildBg(im);
+  if (!G.bgc) G.bgc = buildBg(im, L.fx);
   const d = RS, Wc = w / d, Hc = h / d;
-  let zs = Math.min(Hc * .58 / rowH, Wc / 330); zs = Math.max(zs, Wc / rowW);
+  let zs = Math.min(Hc * .58 / rowH, Wc / (Wc < Hc ? 250 : 330)); // en vertical (celular) se acerca más: si no, el personaje se vería diminuto zs = Math.max(zs, Wc / rowW);
   const s = zs * d, vw = w / s, rowPx = rowH * s;
   let oy = h > rowPx ? (h - rowPx) * .55 : (h - rowPx) / 2;
   // Cámara tipo Mario: ventana muerta (el personaje se mueve sin que la cámara reaccione) y, al salirse de ella,
@@ -1459,7 +1465,11 @@ function draw() {
   ctx.globalCompositeOperation = "source-over";
   ctx.setTransform(s, 0, 0, s, -cam * s, oy);
   ctx.save();
-  if (!G.rowC || G.rowC.s !== s) { const rc = document.createElement("canvas"); const k = Math.min(s, 12000 / rowW); rc.width = Math.round(rowW * k); rc.height = Math.round(rowH * k); const rx = rc.getContext("2d"); rx.imageSmoothingQuality = "high"; rx.drawImage(im, 0, 0, rc.width, rc.height); rc.s = s; G.rowC = rc }
+  if (!G.rowC || G.rowC.s !== s) { const rc = document.createElement("canvas"); const k = Math.min(s, 12000 / rowW); rc.width = Math.round(rowW * k); rc.height = Math.round(rowH * k); const rx = rc.getContext("2d"); rx.imageSmoothingQuality = "high"; rx.drawImage(im, 0, 0, rc.width, rc.height);
+    { const e1 = Math.max(2, rc.height * .09), e2 = Math.max(2, rc.height * .06); rx.globalCompositeOperation = "destination-out"; // los bordes se funden con la extensión: sin corte duro
+      let fg = rx.createLinearGradient(0, 0, 0, e1); fg.addColorStop(0, "rgba(0,0,0,1)"); fg.addColorStop(.5, "rgba(0,0,0,.45)"); fg.addColorStop(1, "rgba(0,0,0,0)"); rx.fillStyle = fg; rx.fillRect(0, 0, rc.width, e1);
+      fg = rx.createLinearGradient(0, rc.height - e2, 0, rc.height); fg.addColorStop(0, "rgba(0,0,0,0)"); fg.addColorStop(1, "rgba(0,0,0,1)"); rx.fillStyle = fg; rx.fillRect(0, rc.height - e2, rc.width, e2); rx.globalCompositeOperation = "source-over" }
+    rc.s = s; G.rowC = rc }
   ctx.drawImage(G.rowC, 0, 0, rowW, rowH);
   // ambiente
   ctx.globalCompositeOperation = "lighter";
