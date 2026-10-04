@@ -599,6 +599,29 @@ function extendLevel(L, xs, xe, hz) {
     .map(h => { const cx = (h[0] + h[1]) / 2, p = L.plats.find(q => cx >= q[0] && cx <= q[1]); return p ? [h[0], h[1], p[2], h[2] || 0, h[3] || 2.4] : null }).filter(Boolean);
 }
 for (const area in LEVEL_EXT) for (const i in LEVEL_EXT[area]) extendLevel(LEVELS[area][i], LEVEL_EXT[area][i][0], LEVEL_EXT[area][i][1], (LEVEL_HZ[area] || {})[i]);
+/* Gemas alcanzables sin arriesgar vida. Antes algunas flotaban sobre el vacío a una altura que sólo se alcanza con un salto
+   corto, y se caía a la lava. Ahora cada gema queda: (1) sobre una plataforma, a ~60 de altura (salto parado); (2) sobre el
+   centro de una plataforma móvil cercana; o (3) en un hueco, en el punto más alto del salto largo, que se agarra con un
+   salto completo y se aterriza del otro lado. */
+function fixGems(L) {
+  if (!L.gems || L.fly) return;
+  const solids = L.plats.concat(L.bridges || []), mv = L.movers || [], hit = (x, q, m) => x >= q[0] - m && x <= q[1] + m;
+  L.gems = L.gems.map(([gx, gy]) => {
+    const on = solids.find(q => hit(gx, q, 8));
+    if (on) return [gx, Math.max(gy, on[2] - 62)];
+    const cx = m => (m.walk[0] + m.walk[1]) / 2, m = mv.slice().sort((a, b) => Math.abs(cx(a) - gx) - Math.abs(cx(b) - gx))[0];
+    if (m) return [cx(m), m.walk[2] - (m.ay || 0) - 45]; // niveles con móviles: la gema va sobre la móvil más cercana
+    const A = solids.filter(q => q[1] <= gx).sort((a, b) => b[1] - a[1])[0], B = solids.filter(q => q[0] >= gx).sort((a, b) => a[0] - b[0])[0];
+    if (A && B) {
+      const w = B[0] - A[1], y = Math.min(A[2], B[2]);
+      if (w >= 110) return [(A[1] + B[0]) / 2, Math.max(12, y - Math.min(96, 40 + w * .3))];
+      return [gx < (A[1] + B[0]) / 2 ? A[1] - 22 : B[0] + 22, y - 55];
+    }
+    const q = A || B; return q ? [Math.max(q[0] + 20, Math.min(q[1] - 20, gx)), q[2] - 55] : [gx, gy];
+  });
+  L.gems = L.gems.filter((g, i, arr) => arr.findIndex(h => Math.abs(h[0] - g[0]) < 36 && Math.abs(h[1] - g[1]) < 30) === i); // sin gemas encimadas
+}
+for (const area in LEVELS) LEVELS[area].forEach(fixGems);
 /* Imagen del nivel extendido: ida + espejo + ida + resto, en un solo lienzo con el mismo formato que la imagen original */
 function levelImg(L) {
   const base = img(L.img); if (!L.ext) return base; if (L._im) return L._im;
@@ -955,9 +978,10 @@ new Image().src = AVATARS.nino.src;
 const runSheets = {}; for (const a of Object.values(AVATARS)) if (a.run) { const i = new Image(); i.src = a.run; runSheets[a.src] = i }
 function runSheetFor(sh) { const i = Object.entries(runSheets).find(([k]) => sh.src.endsWith(k)); return i && i[1].complete && i[1].naturalWidth ? i[1] : null }
 function applyAvatar(k) { const a = AVATARS[k] || AVATARS.nina; if (!sheet.src.endsWith(a.src)) sheet.src = a.src; $("#app").style.setProperty("--avatar", `url(${a.src})`) }
-// Proporciones: el personaje mide ~28% del alto de la pantalla (probado: .13 se veía muy chico, .22 muy grande).
+// Proporciones: el personaje mide ~28% del alto de la pantalla y se ve ~40% más escenario a lo ancho que antes
+// (probado: .13 se veía muy chico, .22 muy grande; con zoom .72 no se veía la siguiente plataforma y se saltaba a ciegas).
 // KR y FR escalan todo lo que estaba medido para el tamaño anterior (K .22, FLY_K .72): zancada, sombra, estela, llama.
-const CW = 260, CH = 420, K = 0.18, FLY_K = .9; // FLY_K: tamaño del avatar al volar
+const CW = 260, CH = 420, K = 0.19, FLY_K = .9; // FLY_K: tamaño del avatar al volar
 // Física de plataformas: correr y saltar más lento que antes; subir con la tecla presionada es más ligero que caer (salto con peso).
 // El hueco más ancho de los niveles mide 200 u: alcance = RUN_V x tiempo en el aire ~ 208 u (+16 u de tolerancia en los bordes).
 const RUN_V = 250, JUMP_V = 475, G_UP = 1050, G_DOWN = 1500;
@@ -1311,7 +1335,7 @@ function draw() {
   const L = G.L, rowW = im.naturalWidth / RES, rowH = im.naturalHeight / RES, t = G.t;
   if (!G.bgc) G.bgc = buildBg(im);
   const d = RS, Wc = w / d, Hc = h / d;
-  let zs = Math.min(Hc * .72 / rowH, Wc / 300); zs = Math.max(zs, Wc / rowW);
+  let zs = Math.min(Hc * .58 / rowH, Wc / 330); zs = Math.max(zs, Wc / rowW);
   const s = zs * d, vw = w / s, rowPx = rowH * s;
   let oy = h > rowPx ? (h - rowPx) * .55 : (h - rowPx) / 2;
   // Cámara tipo Mario: ventana muerta (el personaje se mueve sin que la cámara reaccione) y, al salirse de ella,
@@ -1369,6 +1393,14 @@ function draw() {
   // puentes de luz
   const br = (L.bridges || []).concat(G.exitOn && L.exit ? [L.exit] : []);
   for (const [x0, x1, y] of br) drawSlabs(ctx, x0, x1, y, t); // puente: losas de hielo flotantes, mismo estilo que las plataformas del arte
+  // guías de las plataformas móviles: línea punteada con su recorrido y un brillo en los extremos, para ver por dónde vienen
+  if (L.movers) for (const m of L.movers) {
+    const [a0, a1, wy] = m.walk, cx = (a0 + a1) / 2, ax = m.ax || 0, ay = m.ay || 0, gy = wy + 2, ph = (TAU * t / m.T + (m.ph || 0)), k = Math.sin(ph) * (m.mir ? -1 : 1);
+    ctx.save(); ctx.setLineDash([5, 7]); ctx.lineWidth = 1.6; ctx.strokeStyle = "rgba(120,225,255,.42)"; ctx.fillStyle = "rgba(160,240,255,.8)";
+    ctx.beginPath(); if (ax) { ctx.moveTo(cx - ax, gy + 12); ctx.lineTo(cx + ax, gy + 12) } if (ay) { ctx.moveTo(cx, wy - ay + 12); ctx.lineTo(cx, wy + ay + 12) } ctx.stroke(); ctx.setLineDash([]);
+    for (const e of ax ? [-1, 1] : [0]) for (const f of ay ? [-1, 1] : [0]) { ctx.beginPath(); ctx.arc(cx + e * ax, wy + f * ay + 12, 2.6, 0, TAU); ctx.fill() }
+    ctx.beginPath(); ctx.arc(cx + (ax ? k * ax : 0), wy + (ay ? Math.sin(ph) * ay : 0) + 12, 3.6, 0, TAU); ctx.fill(); ctx.restore();
+  }
   // plataformas móviles
   if (L.movers) for (const m of L.movers) { const im2 = spr(m.spr), r = OBJ[m.spr.split("_")[0]][m.spr.split("_")[1]], [dx, dy] = moverOff(m, t); if (im2.complete) { if (m.mir) { ctx.save(); ctx.translate(m.mx - (r[0] + r[2] / 2) + dx, r[1] + r[3] / 2 + dy); ctx.scale(-1, 1); ctx.drawImage(im2, -r[2] / 2, -r[3] / 2, r[2], r[3]); ctx.restore() } else ctx.drawImage(im2, r[0] + (m.sx || 0) + dx, r[1] + dy, r[2], r[3]) } ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(80,220,255,${.18 + .12 * pulse})`; ctx.beginPath(); ctx.ellipse((m.walk[0] + m.walk[1]) / 2 + dx, r[1] + r[3] + dy - 6, (m.walk[1] - m.walk[0]) * .3, 5, 0, 0, TAU); ctx.fill(); ctx.restore() }
   // obstáculos en movimiento
